@@ -1,0 +1,1 @@
+randomizor = fullRandomizor(trialsPerRun, 96, sortedNonsidedShapesTextures, totalTargets);
