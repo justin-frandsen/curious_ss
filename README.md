@@ -43,5 +43,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Acknowledgments
 
 - Thanks to all the participants and contributors who made this project possible.
-- Inspired by curiosity-driven learning research and experiments.
 
