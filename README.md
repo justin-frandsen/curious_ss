@@ -13,7 +13,7 @@ Participants are shown scenes containing various shapes. The goal is to investig
 - `/data/` — Output data from experiments (gitignored)
 - `/results/` — Analysis results and figures (gitignored)
 - `/src/` — Source code and reusable functions
-- `main_script.m` — Main experiment script
+- `read_me.m` — Main experiment script
 
 ## Getting Started
 
@@ -26,9 +26,9 @@ Participants are shown scenes containing various shapes. The goal is to investig
    cd curious_ss
    ```
 
-4. Run the main script to start the experiment:
-   ```sh
-   run('curious_ss.m')
+4. Run the main script in MATLAB start the experiment:
+   ```matlab
+   curious_ss
    ```
 
 ## Usage
