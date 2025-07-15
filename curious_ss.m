@@ -295,9 +295,9 @@ for run_looper = run_num:total_runs
         Screen('DrawTexture', search, scene_textures(this_subj_this_run.cBSceneOrder(trial_looper)));
         
         % ScreenShot Search
-        if strcmpi(recordPics, 'Y')
+        if strcmpi(record_pics, 'Y')
             % Search
-            screenshot(search,'Search', t)
+            screenshot(search, 'Search' , trial_looper)
         end
 
         HideCursor(scrID);         % Hide mouse cursor before the next trial
