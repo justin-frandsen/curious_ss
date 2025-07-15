@@ -123,7 +123,7 @@ if exist(fullfile(eye_output_folder_name, eye_file_name), 'file')
 end
 
 % Test if .edf file already exists
-edf_file_name = sprintf(edf_file_format, sub_num, run_num)
+edf_file_name = sprintf(edf_file_format, sub_num, run_num);
 if exist(fullfile(edf_output_folder_name, edf_file_name), 'file')
     error('Subject edf file already exists. Delete the file to rerun with the same subject number.');
 end
@@ -140,9 +140,11 @@ fix.Timeout = 5000;
 fix.reqDur = 500;
 
 % Run information
-main_runs = 6
+main_runs = 6;
 practice_runs = 1;
 total_runs = main_runs + practice_runs;
+
+total_trials = 74;
 
 %Fonts
 my_font = 'Arial'; % for any text
@@ -258,14 +260,37 @@ ACCcount = 0;
 trialcounter = 0;
 
 %% EXPERIMENT START
-for run_num = 1:total_runs
-    instruct_curious_ss(sub_num, run_num, w, scrID, rect, col); % show instructions will need to change this to a function later
+for run_looper = run_num:total_runs
+    instruct_curious_ss(sub_num, run_looper, w, scrID, rect, col); % show instructions will need to change this to a function later
 
+    % eyelink calibration
     if strcmpi(eyetracking, 'Y')
         % Enter tracker setup/calibration
         EyelinkDoTrackerSetup(el);
     end
     
+    % Load randomization data
+    randomizor = load('trial_structure_files/randomizor.mat'); % load the pre-randomized data
+    randomizor = randomizor.randomizor_matrix; %remove a layer of struct
+    this_subj_this_run = randomizor.(sprintf('subj%d', sub_num)).(sprintf('run%d', run_looper)); %method of getting into the struct
+
+    %% Loop through trials
+    for trial_looper = 1:total_trials        
+        HideCursor(scrID);         % Hide mouse cursor before the next trial
+        SetMouse(10, 10, scrID);   % Move the mouse to the corner -- in case some jerk has unhidden it
+        
+        % Blank ISI
+        Screen('DrawTexture', w, fixation);
+        Screen('flip', w);
+        WaitSecs(.5); % 500 ms ITI
+        
+        % Central Fixation
+        Screen('DrawTexture', w, search);
+        if strcmp(eyetracking, 'Y')
+            centralFixation(w, height, width, fixation, fix.reqDur, fix.Timeout, fix.Radius, t, el, eye, search)
+        end
+    end
 end
-sca;
+
+pfp_ptb_cleanup; % cleanup PTB
 

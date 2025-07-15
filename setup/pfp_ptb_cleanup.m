@@ -7,3 +7,5 @@ ShowCursor;
 fclose('all');
 Priority(0);
 ListenChar(0);
+
+sca;
