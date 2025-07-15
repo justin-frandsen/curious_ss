@@ -76,7 +76,4 @@ function el = setup_eyelink(windowPtr, edfFileName)
     
     % Button 5 accepts target fixation (EyeLink Remote)
     Eyelink('command', 'button_function 5 "accept_target_fixation"');
-    
-    % Enter tracker setup/calibration
-    EyelinkDoTrackerSetup(el);
 end

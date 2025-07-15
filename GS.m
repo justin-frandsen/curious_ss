@@ -210,7 +210,6 @@ if strcmpi(eyetracking, 'Y')
         end
     end
     fprintf('done!\n');
-    
 end
 
 %% Start Experiment

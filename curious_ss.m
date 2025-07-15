@@ -1,7 +1,7 @@
 %-----------------------------------------------------------------------
 % Script: shapeSearch.m
 % Author: Justin Frandsen
-% Date: 10/12/2023
+% Date: 07/15/2025 format: DD/MM/YYYY
 % Description: This script runs a visual search experiment where participants
 %              search for a target shape among distractor shapes. Participants
 %              are given a viewing window after the search duration to see if
@@ -23,7 +23,6 @@
 %% CLEAR VARIABLES
 clc;
 close all;
-clearvars -except sub_num run_num
 sca;
 ClockRandSeed; % Resets the random # generator
 %% ADD PATHS
@@ -78,7 +77,6 @@ else
     if ~isnumeric(run_num) || run_num <= 0
         error('Invalid run number. Please clear the workspace.');
     end
-    run_num = run_num + 1; % Increment run_num by 1 if it already exists so that experimenter doesn't have to constantly change run_num
 end
 
 %% Check if experimenter wants to proceed
@@ -141,14 +139,10 @@ fix.Radius = 90;
 fix.Timeout = 5000;
 fix.reqDur = 500;
 
-% Blocks & Trials
-pBlocks = 1;  % # practice blocks
-rBlocks = 10; % # regular blocks
-trialsBlock = 60; % 60 trials in each block 
-pTotal = trialsBlock * pBlocks; % total practice trials
-experimentalBlocks = rBlocks/2; % 5, 120 trial chunks
-totalBlocks = pBlocks + rBlocks; % total number of blocks (practice + experimental)
-total = (rBlocks * trialsBlock) + (pBlocks * trialsBlock); % Total number of trials in the experimental ses
+% Run information
+main_runs = 6
+practice_runs = 1;
+total_runs = main_runs + practice_runs;
 
 %Fonts
 my_font = 'Arial'; % for any text
@@ -264,12 +258,14 @@ ACCcount = 0;
 trialcounter = 0;
 
 %% EXPERIMENT START
-for block = 1:totalBlocks %im using run terminology so change to run later
-    instruct_curious_ss(sub_num, run_num, w, scrID, rect, col); % show instructions
+for run_num = 1:total_runs
+    instruct_curious_ss(sub_num, run_num, w, scrID, rect, col); % show instructions will need to change this to a function later
 
-    %next get calibration setup
-    %then get task setup
-    %will need a trial for loop for that and then 
+    if strcmpi(eyetracking, 'Y')
+        % Enter tracker setup/calibration
+        EyelinkDoTrackerSetup(el);
+    end
+    
 end
 sca;
 
