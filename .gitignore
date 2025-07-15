@@ -50,6 +50,7 @@ Icon?
 # Experiment data
 /data/
 /brad_scripts/
+tester.m
 *.csv
 *.tsv
 *.xlsx

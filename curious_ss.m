@@ -23,6 +23,7 @@
 %% CLEAR VARIABLES
 clc;
 close all;
+clear all;
 sca;
 ClockRandSeed; % Resets the random # generator
 %% ADD PATHS
@@ -101,8 +102,7 @@ edf_output_folder_name = 'data/edf_data/';
 edf_file_format = 'S%.3dR%.1d.edf';
 
 % scene images locations
-scene_folder_main         = 'stimuli/scenes/main_scenes';
-scene_folder_practice     = 'stimuli/scenes/practice_scenes';
+scene_folder            = 'stimuli/scenes/';
 
 % shapes images locations
 nonsided_shapes          = 'stimuli/shapes/transparent_black';
@@ -178,6 +178,25 @@ col.fix = col.black; % fixation color
 [width, height] = Screen('WindowSize', scrID); %get the width and height of the screen
 Screen('BlendFunction', w, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA'); %allows the .png files to be transparent
 
+%% LOAD STIMULI!!!
+% shapes images locations
+% shapes images locations
+nonsided_shapes          = 'stimuli/shapes/transparent_black';
+shapes_left             = 'stimuli/shapes/black_left_T';
+shapes_right            = 'stimuli/shapes/black_right_T';
+
+DrawFormattedText(w, 'Loading Images...', 'center', 'center');
+Screen('Flip', w);
+
+[scene_file_paths, scene_textures] = imageStimuliImport2(scene_folder, '', w);
+
+
+total_scenes = length(scene_file_paths);
+
+% Load in shape stimuli
+[sorted_nonsided_shapes_file_paths, sorted_nonsided_shapes_textures] = imageStimuliImport2(nonsided_shapes, '*.png', w, true);
+[sorted_left_shapes_file_paths, sorted_left_shapes_textures] = imageStimuliImport2(shapes_left, '*.png', w, true);
+[sorted_right_shapes_file_paths, sorted_right_shapes_textures] = imageStimuliImport2(shapes_right, '*.png', w, true);
 %% Background Screens
 
 % Screens
@@ -204,6 +223,23 @@ Screen('FillRect', fixation, col.fix, ...
 Screen('FillRect', fixation, col.fix, ...
     CenterRectOnPoint([-fixthick -fixsize fixthick fixsize], fixationX, fixationY));
 
+% draw targets textures
+% load randomizor for target shapes
+randomizor = load('trial_structure_files/randomizor.mat'); % load the pre-randomized data
+all_targets = randomizor.randomizor.(sprintf('subj%d', sub_num)).(sprintf('run%d', 1)).allTargets; %method of getting into the struct
+
+target1 = Screen('OpenOffscreenWindow', scrID, col.bg, rect);
+Screen('DrawTexture', target1, sorted_nonsided_shapes_textures(all_targets(1, 1)));
+
+target2 = Screen('OpenOffscreenWindow', scrID, col.bg, rect);
+Screen('DrawTexture', target2, sorted_nonsided_shapes_textures(all_targets(1, 2)));
+
+target3 = Screen('OpenOffscreenWindow', scrID, col.bg, rect);
+Screen('DrawTexture', target3, sorted_nonsided_shapes_textures(all_targets(1, 3)));
+
+target4 = Screen('OpenOffscreenWindow', scrID, col.bg, rect);
+Screen('DrawTexture', target4, sorted_nonsided_shapes_textures(all_targets(1, 4)));
+
 % Draw feedback messages
 feedback_slow = Screen('OpenOffscreenWindow', scrID, col.bg, rect);
 Screen('textSize', feedback_slow, my_font_size);
@@ -220,29 +256,6 @@ feedback_incorrect = Screen('OpenOffscreenWindow', scrID, col.bg, rect);
 Screen('textSize', feedback_incorrect, my_font_size);
 Screen('TextFont', feedback_incorrect, my_font);
 DrawFormattedText(feedback_incorrect, 'Incorrect!', 'center', 'center', col.fg);
-%% LOAD STIMULI!!!
-% shapes images locations
-% shapes images locations
-nonsided_shapes          = 'stimuli/shapes/transparent_black';
-shapes_left             = 'stimuli/shapes/black_left_T';
-shapes_right            = 'stimuli/shapes/black_right_T';
-
-DrawFormattedText(w, 'Loading Images...', 'center', 'center');
-Screen('Flip', w);
-
-% Load all .jpg files in the scenes folder.
-if run_num == 1
-    [scene_file_paths, scene_textures] = imageStimuliImport(scene_folder_practice, '', w);
-elseif run_num > 1
-    [scene_file_paths, scene_textures] = imageStimuliImport(scene_folder_main, '', w);
-end
-
-total_scenes = length(scene_file_paths);
-
-% Load in shape stimuli
-[sorted_nonsided_shapes_file_paths, sorted_nonsided_shapes_textures] = imageStimuliImport(nonsided_shapes, '*.png', w, true);
-[sorted_left_shapes_file_paths, sorted_left_shapes_textures] = imageStimuliImport(shapes_left, '*.png', w, true);
-[sorted_right_shapes_file_paths, sorted_right_shapes_textures] = imageStimuliImport(shapes_right, '*.png', w, true);
 
 %% INITIALIZE EYETRACKER
 if eyetracking == 'Y'
@@ -261,7 +274,8 @@ trialcounter = 0;
 
 %% EXPERIMENT START
 for run_looper = run_num:total_runs
-    instruct_curious_ss(sub_num, run_looper, w, scrID, rect, col); % show instructions will need to change this to a function later
+    % This is where we will show instructions do this at the end!!!
+    %instruct_curious_ss(sub_num, run_looper, w, scrID, rect, col); % show instructions will need to change this to a function later
 
     % eyelink calibration
     if strcmpi(eyetracking, 'Y')
@@ -271,11 +285,21 @@ for run_looper = run_num:total_runs
     
     % Load randomization data
     randomizor = load('trial_structure_files/randomizor.mat'); % load the pre-randomized data
-    randomizor = randomizor.randomizor_matrix; %remove a layer of struct
-    this_subj_this_run = randomizor.(sprintf('subj%d', sub_num)).(sprintf('run%d', run_looper)); %method of getting into the struct
+    this_subj_this_run = randomizor.randomizor.(sprintf('subj%d', sub_num)).(sprintf('run%d', run_looper)); %method of getting into the struct
 
     %% Loop through trials
-    for trial_looper = 1:total_trials        
+    for trial_looper = 1:1 %total_trials
+        %% DRAW SCENE   
+        search = Screen('OpenOffscreenWindow', scrID, col.bg, rect);
+        % Draw the scene texture
+        Screen('DrawTexture', search, scene_textures(this_subj_this_run.cBSceneOrder(trial_looper)));
+        
+        % ScreenShot Search
+        if strcmpi(recordPics, 'Y')
+            % Search
+            screenshot(search,'Search', t)
+        end
+
         HideCursor(scrID);         % Hide mouse cursor before the next trial
         SetMouse(10, 10, scrID);   % Move the mouse to the corner -- in case some jerk has unhidden it
         
@@ -285,12 +309,68 @@ for run_looper = run_num:total_runs
         WaitSecs(.5); % 500 ms ITI
         
         % Central Fixation
-        Screen('DrawTexture', w, search);
+        Screen('DrawTexture', w, target1);
+        WaitSecs(.5); 
         if strcmp(eyetracking, 'Y')
             centralFixation(w, height, width, fixation, fix.reqDur, fix.Timeout, fix.Radius, t, el, eye, search)
         end
+
+        Screen('DrawTexture', w, fixation);
+        Screen('flip', w);
+        WaitSecs(.5); % 500 ms ITI
+
+        Screen('DrawTexture', w, search);
+        Screen('flip', w);
+        WaitSecs(.5); % 500 ms ITI
+
+        Screen('DrawTexture', w, feedback_correct);
+        Screen('flip', w);
+        WaitSecs(.5); % 500 ms ITI
     end
+end
+%% END EXPERIMENT
+% Show end of experiment message
+DrawFormattedText(w, 'Experiment Complete! Thank you for participating.', 'center', 'center', col.fg);
+Screen('Flip', w);
+WaitSecs(2); % Wait for 2 seconds before closing
+DrawFormattedText(w, 'Saving Data...', 'center', 'center');
+Screen('Flip', w);
+
+%% SAVE DATA
+% Save behavioral data
+
+% Save eye movement data
+
+%% SAVE EDF FILE
+if eyetracking == 'Y'
+    WaitSecs(1.0);
+    Eyelink('StopReccording')
+    Eyelink('Command', 'set_idle_mode'); %set tracking to idle
+    WaitSecs(0.5);
+    Eyelink('CloseFile'); %close the EDF file
+    
+    % grab the EDF file from the EyeLink computer (shows text messages
+    % in command window based on whether file retrieval was successful
+    % or not)
+    cd data/edf_data/
+    try
+        fprintf('Receiving data file ''%s''\n', edfFileName);
+        status=Eyelink('ReceiveFile');
+        if status > 0
+            fprintf('ReceiveFile status %d\n', status);
+        end
+        if 2 == exist(edfFileName, 'file')
+            fprintf('Data file ''%s'' can be found in ''%s''\n', edfFileName, pwd);
+        end
+    catch
+        fprintf('Problem receiving data file ''%s''\n', edfFileName);
+    end
+    cd ../../
+    
+    Eyelink('Shutdown'); %shutdown Matlab connection to EyeLink
 end
 
 pfp_ptb_cleanup; % cleanup PTB
-
+close all; % close all windows
+clear all; % clear all variables
+sca; % close PTB
