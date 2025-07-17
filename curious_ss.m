@@ -25,7 +25,7 @@ clc;
 close all;
 clear all;
 sca;
-ClockRandSeed; % Resets the random # generator
+rng('shuffle'); % Resets the random # generator
 %% ADD PATHS
 addpath(genpath('setup'));
 
@@ -188,15 +188,14 @@ shapes_right            = 'stimuli/shapes/black_right_T';
 DrawFormattedText(w, 'Loading Images...', 'center', 'center');
 Screen('Flip', w);
 
-[scene_file_paths, scene_textures] = imageStimuliImport2(scene_folder, '', w);
-
-
+[scene_file_paths, scene_textures] = image_stimuli_import(scene_folder, '', w);
 total_scenes = length(scene_file_paths);
 
 % Load in shape stimuli
-[sorted_nonsided_shapes_file_paths, sorted_nonsided_shapes_textures] = imageStimuliImport2(nonsided_shapes, '*.png', w, true);
-[sorted_left_shapes_file_paths, sorted_left_shapes_textures] = imageStimuliImport2(shapes_left, '*.png', w, true);
-[sorted_right_shapes_file_paths, sorted_right_shapes_textures] = imageStimuliImport2(shapes_right, '*.png', w, true);
+[sorted_nonsided_shapes_file_paths, sorted_nonsided_shapes_textures] = image_stimuli_import(nonsided_shapes, '*.png', w, true);
+[sorted_left_shapes_file_paths, sorted_left_shapes_textures] = image_stimuli_import(shapes_left, '*.png', w, true);
+[sorted_right_shapes_file_paths, sorted_right_shapes_textures] = image_stimuli_import(shapes_right, '*.png', w, true);
+
 %% Background Screens
 
 % Screens

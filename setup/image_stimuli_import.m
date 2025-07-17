@@ -1,8 +1,8 @@
-function[filePathMatrix, textureMatrix] = imageStimuliImport(fileDirectory, fileType, PTBwindow, sortLogical)
+function[filePathMatrix, textureMatrix] = image_stimuli_import(fileDirectory, fileType, PTBwindow, sortLogical)
 %-------------------------------------------------------------------------
 % Script: imageStimuliImport.m
 % Author: Justin Frandsen
-% Date: 07/20/2023
+% Date: 07/22/2024
 % Description: Matlab Script that is used for importing image files and
 %              turing them into textures.
 %
@@ -26,7 +26,7 @@ if isempty(fileType)
     % The inputVariable is empty.
     myFiles = dir(fullfile(fileDirectory));
     % Exclude '.' (current directory) and '..' (parent directory)
-    myFiles = myFiles(~ismember({myFiles.name}, {'.', '..'}));
+    myFiles = myFiles(~ismember({myFiles.name}, {'.', '..', '.DS_Store'}));
 elseif fileType == '*.png'
     % The inputVariable is not empty.
     % Proceed with your function logic.
@@ -37,12 +37,14 @@ filePathMatrix = string(zeros(length(myFiles), 1)); %matrix that contains all im
 textureMatrix = zeros(length(myFiles), 1); %matrix that contains all the textures of the image files
 
 for k = 1:length(myFiles)
+    disp(k);
+
     baseFileName = myFiles(k).name;
     fullFilePath = string(fullfile(fileDirectory, baseFileName));
     
     %this if differs for .png files because png files have the ability to
     %be transparent, so they need the alpha variable.
-   
+    
     if strcmp(fileType, '*.png')
         [loadedImg, ~, alpha] = imread(fullFilePath);
         loadedImg(:, :, 4) = alpha;
