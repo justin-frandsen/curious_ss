@@ -41,8 +41,8 @@ col.bg = col.gray; % background color
 col.fg = col.white; % foreground color
 col.fix = col.black; % fixation color
 
-screens = Screen('Screens');
-scrID = max(screens);
+screens = Screen('Screens'); % Get the list of screens
+scrID = max(screens); % Get the maximum screen ID (this should usually be the external monitor if using multiple screens)
 
 % Initilize PTB window
 [w, rect] = pfp_ptb_init; %call this function which contains all the screen initilization.
@@ -69,7 +69,7 @@ for scene_num = 1:length(scenes_texture_matrix)
     scene = Screen('OpenOffscreenWindow', scrID, col.bg, rect);
     % Draw the scene texture
     Screen('DrawTexture', scene, scenes_texture_matrix(scene_num), [], rect);
-        
+
     for position_num = 1:number_of_positions
         WaitSecs(0.5);
         running = true;
@@ -98,13 +98,24 @@ for scene_num = 1:length(scenes_texture_matrix)
             % Draw texture at new position
             position = texture_size + texture_mover;
             Screen('DrawTexture', w, scene);
-            Screen('DrawTexture', w, this_shape, [], position);
+
+            % Draw the previously placed positions for this scene
+            for prev_position = 1:position_num-1 %loop through all previous positions
+                if ~isempty(saved_positions{scene_num, prev_position})
+                    % Draw previous positions
+                    Screen('DrawTexture', w, this_shape, [], saved_positions{scene_num, prev_position}); % draw the current shape. This saves resource usage relative to drawing all diff ones that arent already loaded in.
+                end
+            end
+
+            Screen('DrawTexture', w, this_shape, [], position); % draw the current shape at the new position determined by the mouse position
             Screen('Flip', w);
             
-            WaitSecs(0.01);
+            WaitSecs(0.01); % small delay to prevent excessive CPU usage
         end
-        saved_positions{scene_num, position_num} = position;
+        saved_positions{scene_num, position_num} = position; % Save the position of the shape
     end
 end
 
 save ../../trial_structure_files/shape_positions.mat saved_positions
+
+pfp_ptb_cleanup;
