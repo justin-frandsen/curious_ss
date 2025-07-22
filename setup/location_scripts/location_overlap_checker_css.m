@@ -2,7 +2,7 @@ function location_overlap_checker(scene_type_main0_practice1, unchecked0_checked
 %-----------------------------------------------------------------------
 % Script: location_overlap_checker.m
 % Author: Justin Frandsen
-% Date: 10/02/2023
+% Date: 22/07/2025 %dd/mm/yyyy
 % Description:
 % - This script takes the output of shape_position_finder.m and checks what
 %   locations are overlapping.

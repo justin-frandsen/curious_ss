@@ -1,7 +1,7 @@
 %-------------------------------------------------------------------------
 % Script: randomizor_curious.m
 % Author: Justin Frandsen
-% Date: 07/15/2025 format: DD/MM/YYYY
+% Date: 22/07/2025 %dd/mm/yyyy
 % Description: Prerandomizor for the curious_ss experiment.
 %
 % Usage:

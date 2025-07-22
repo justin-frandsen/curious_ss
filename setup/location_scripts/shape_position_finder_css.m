@@ -1,7 +1,7 @@
 %-----------------------------------------------------------------------
 % Script: shape_position_finder.m
 % Author: Justin Frandsen
-% Date: 12/07/2024 %dd/mm/yyyy
+% Date: 22/07/2025 %dd/mm/yyyy
 % Description:
 % - Matlab script used to place images on their correct locations in scenes
 %   and output rects for placing them in the main experiment.
@@ -24,7 +24,7 @@ sca;
 %% ADD PATHS
 addpath(genpath('../'));
 
-% settings
+%% settings
 scene_folder = '../../stimuli/scenes/';
 shapes_folder = '../../stimuli/shapes/transparent_black';
 

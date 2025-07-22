@@ -1,19 +1,24 @@
 %-----------------------------------------------------------------------
 % Script: shapeSearch.m
 % Author: Justin Frandsen
-% Date: 07/15/2025 format: DD/MM/YYYY
+% Date: 22/07/2025 %dd/mm/yyyy
 % Description: This script runs a visual search experiment where participants
 %              search for a target shape among distractor shapes. Participants
 %              are given a viewing window after the search duration to see if
 %              exploration leads to distractor learning.
 %
 % Additional Comments:
-% - 
-% - 
-% - 
+% - This script is designed to be run after the setup scripts have been executed.
+% - It requires the Psychtoolbox to be initialized and the necessary image files to be imported.
 %
 % Usage:
-% - 
+% - Ensure that the Psychtoolbox is initialized and the image files are imported using
+%   the `imageStimuliImport` function.
+% - The script will prompt for subject and run numbers, and check if the output files already
+%   exist to prevent overwriting.
+% - The experiment will run through a series of trials where participants search for target shapes.
+% - At the end of the experiment, it will save the behavioral data, eye movement data,
+%   and EDF files if eye tracking is enabled.
 % - Script will output a .csv file containing behavioral data, a .csv file
 %   containing fixation data, a .mat file containing all variables in the
 %   matlab enviroment, and a .edf file for usage with eyelink data viewer.
