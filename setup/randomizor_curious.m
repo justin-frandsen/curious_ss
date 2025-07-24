@@ -44,7 +44,8 @@ shape_inds = 1:length(all_shapes);
 
 % target inds we can use these for randomization because we will select target inds for each person later
 target_inds = [1 2 3 4]; % Indices of target shapes
-distractor_inds = [1 2 3 4]; % Indices of distractor shapes
+distractor_inds = [1 2 3]; % Indices of distractor shapes
+
 
 
 
@@ -109,8 +110,11 @@ for sub_num = 1:total_subs
     % First half targets
     first_half_targets = randsample(shape_inds, length(target_inds)); % Randomly select 74 scenes for the first half
     first_half_distractors = setdiff(shape_inds, first_half_targets); % Remaining 37 scenes for the second half
-    first_half_critical_distractors = randsample(first_half_distractors, length(distractor_inds)); %select 3 critical distractors for the first half
+    first_half_critical_distractors = randsample(first_half_distractors, 3); %select 3 critical distractors for the first half
     first_half_distractors = setdiff(first_half_distractors, first_half_critical_distractors); % Remaining distractors for the first half
+
+    scene_randomizor_first_half = sortrows(scene_randomizor_first_half, 1);
+    scene_randomizor_second_half = sortrows(scene_randomizor_second_half, 1);
 
     %% RUN LOOP
     for run_num = 1:total_runs
@@ -123,7 +127,12 @@ for sub_num = 1:total_subs
         if run_num <= 4
             % For runs 1-4, use the first half of the scenes
             scene_randomizor = scene_randomizor_first_half(scene_randomizor_first_half(:,3) == run_num, :);
-
+            rep_num = length(scene_randomizor_first_half)/3; % Number of repetitions in the first half
+            row_index = 1;
+            for i = 1:rep_num
+                scene_randomizor(row_index:row_index+2, 4) = randperm(3); % Assign distractor inds (1 to 3)
+                row_index = row_index + 3; % Move to the next set of rows
+            end
         else
             % For runs 5-6, use the second half of the scenes
             scene_randomizor = scene_randomizor_second_half(scene_randomizor_second_half(:,3) == run_num, :);
