@@ -321,6 +321,6 @@ for subject = 1:total_subs
     randomizor_matrix.(subStructName) = subjectStruct;
 end
 
-save trialDataFiles/randomizor.mat randomizor_matrix
+% save trialDataFiles/randomizor.mat randomizor_matrix
 
 %end
