@@ -17,6 +17,8 @@ total_trials = total_runs * number_trials; % Total trials across all runs
 % Parameters
 total_scenes = 111;
 total_reps_per_scene = 4;
+total_scenes_first_half = 74; % Total scenes in the first half of the experiment
+total_scenes_second_half = 37; % Total scenes in the second half of the experiment
 
 % there is a total of 444 trials because we have 4 targets and 3 distractors in the first half so we have to
 % have the trials divisible by 12. This also divides nicely into 6 runs of 74 trials each, so that why 6 runs is chosen.
@@ -29,12 +31,6 @@ rng('shuffle');
 % Initialize the main struct to hold 500 sub-structs (subjects)
 randomizor_matrix = struct();
 
-%% GET THE STIMULI INFO FROM THE DIRECTORIES
-% get all main scenes
-all_scenes = dir('../stimuli/scenes/*');
-all_scenes = all_scenes(~ismember({all_scenes.name},{'.','..','.DS_Store'}));
-
-
 % get all shapes in the shape dir
 all_shapes = dir('../stimuli/shapes/transparent_black/*');
 all_shapes = all_shapes(~ismember({all_shapes.name},{'.','..', '.DS_Store'}));
@@ -42,13 +38,13 @@ all_shapes = all_shapes(~ismember({all_shapes.name},{'.','..', '.DS_Store'}));
 %% CREATE INDEXES FOR RANDOMIZATION
 % Indices for main and practice scenes
 % These will be used to randomize the order of scenes in the trials
-scenes_inds = 1:length(all_scenes);
+scenes_inds = 1:total_scenes;
 % Indices for all scenes
 shape_inds = 1:length(all_shapes);
 
 % target inds we can use these for randomization because we will select target inds for each person later
 target_inds = [1 2 3 4]; % Indices of target shapes
-distractor_inds = [1 2 3]; % Indices of distractor shapes
+distractor_inds = [1 2 3 4]; % Indices of distractor shapes
 
 
 
@@ -60,20 +56,29 @@ for sub_num = 1:total_subs
     % Create the subject struct
     subject_struct = struct();
 
-    % Parameters
-    total_scenes = 111;
-    total_reps_per_scene = 4;
-    total_runs = 6;
+    first_half_scenes = randsample(scenes_inds, total_scenes_first_half); % Randomly select 74 scenes for the first half
+    second_half_scenes = setdiff(scenes_inds, first_half_scenes); % Remaining 37 scenes for the second half
 
-    scene_randomizor = zeros(total_trials, 3);
+    scene_randomizor_first_half = zeros(length(first_half_scenes)*4, 5);
+    scene_randomizor_second_half = zeros(length(second_half_scenes)*4, 5);
+
     % Generate scenes and repetition labels
     row_index = 1;
-    for scene_num = 1:num_scenes
+    for scene_num = 1:length(first_half_scenes)
         for target = 1:total_reps_per_scene
-            scene_randomizor(row_index, 1) = scene_num; % Scene number
+            scene_randomizor_first_half(row_index, 1) = first_half_scenes(scene_num); % Scene number
+            scene_randomizor_first_half(row_index, 2) = target; %target inds
             row_index = row_index + 1;
         end
-        scene_randomizor(row_index-4:row_index-1, 2) = randperm(total_reps_per_scene);
+    end
+
+    row_index = 1;
+    for scene_num = 1:length(second_half_scenes)
+        for target = 1:total_reps_per_scene
+            scene_randomizor_second_half(row_index, 1) = second_half_scenes(scene_num); % Scene number
+            scene_randomizor_second_half(row_index, 2) = target; %target inds
+            row_index = row_index + 1;
+        end
     end
     % so here we make a matrix containing all of the scenes. We then randomize the order that the targets are presented in
     % because when we later add the run we use the same permutation for all runs this insures that there is diff scenes for
@@ -81,34 +86,53 @@ for sub_num = 1:total_subs
 
     % Initialize scene_randomizor matrix
     % Col 1: Scene number
-    % Col 2: Repetition number (1–4)
+    % Col 2: Target inds (1 to 4)
     % Col 3: Run number (to be filled)
+    % Col 4: Distractor inds (1-3 in first half, none in second half)
+    % Col 5: Condition (1 is invalid, 0 is valid in first half, no validity in second half)
 
-    % Track scene usage in each run (111 scenes × 6 runs)
-    scene_counts = zeros(num_scenes, num_runs);
-
-    run_permutation = randperm(total_runs); % Randomize run order
-
-    rep_num = length(scene_randomizor)/length(run_permutation);
     row_index = 1;
-    for rep = 1:rep_num
-        scene_randomizor(row_index:row_index+5, 3) = run_permutation'; % Assign run numbers
-        row_index = row_index + 6; % Move to the next set of rows
+    rep_num = length(scene_randomizor_first_half)/4;
+    for i = 1:rep_num
+        scene_randomizor_first_half(row_index:row_index+3, 3) = randperm(4); % Assign runs 1 to 6
+        row_index = row_index + 4; % Move to the next set of rows
     end
-    % Sort by run or scene
-    scene_randomizor = sortrows(scene_randomizor, 3); % sort by run
 
+    run_set_second_half = [5 6];
+    row_index = 1;
+    rep_num = length(scene_randomizor_second_half)/2;
+    for i = 1:rep_num
+        scene_randomizor_second_half(row_index:row_index+1, 3) = run_set_second_half(randperm(numel(run_set_second_half))); % Assign runs 1 to 6
+        row_index = row_index + 2; % Move to the next set of rows
+    end
 
-    for run_num = 1:num_runs
+    % First half targets
+    first_half_targets = randsample(shape_inds, length(target_inds)); % Randomly select 74 scenes for the first half
+    first_half_distractors = setdiff(shape_inds, first_half_targets); % Remaining 37 scenes for the second half
+    first_half_critical_distractors = randsample(first_half_distractors, length(distractor_inds)); %select 3 critical distractors for the first half
+    first_half_distractors = setdiff(first_half_distractors, first_half_critical_distractors); % Remaining distractors for the first half
+
+    %% RUN LOOP
+    for run_num = 1:total_runs
         %get run struct name
         run_struct_name = sprintf('run%d', run_num);
 
         %create run struct
         run_struct = struct();
+        
+        if run_num <= 4
+            % For runs 1-4, use the first half of the scenes
+            scene_randomizor = scene_randomizor_first_half(scene_randomizor_first_half(:,3) == run_num, :);
 
-        run_idx = find(scene_randomizor(:,3) == run_num);
-        run_trials = scene_randomizor(run_idx, :);
-
+        else
+            % For runs 5-6, use the second half of the scenes
+            scene_randomizor = scene_randomizor_second_half(scene_randomizor_second_half(:,3) == run_num, :);
+        end
+        %add variables to save out
+        run_struct.('first_half_targets') = first_half_targets;
+        run_struct.('first_half_distractors') = first_half_distractors;
+        run_struct.('first_half_critical_distractors') = first_half_critical_distractors;
+        run_struct.('scene_randomizor') = scene_randomizor;
 
         % Add the run struct to the subject struct and apply runStructName
         subject_struct.(run_struct_name) = run_struct;
@@ -117,35 +141,25 @@ for sub_num = 1:total_subs
     randomizor_matrix.(sub_struct_name) = subject_struct;
 end
 
-run_counts = histcounts(scene_randomizor(:,3), 0.5:1:6.5); % For runs 1–6
-
-% Display as a table
-disp(table((1:6)', run_counts', 'VariableNames', {'Run', 'TrialCount'}));
-
-num_scenes = 111;
 num_runs = 6;
+target_types = 1:4;
+target_counts_per_run = zeros(num_runs, numel(target_types));
 
-% Initialize matrix: rows = scenes, columns = runs
-scene_run_counts = zeros(num_scenes, num_runs);
+for run = 1:num_runs
+    % Get all rows for this run
+    this_run = scene_randomizor(scene_randomizor(:,3) == run, :);
 
-% Fill it
-for i = 1:size(scene_randomizor, 1)
-    scene = scene_randomizor(i, 1);
-    run = scene_randomizor(i, 3);
-    scene_run_counts(scene, run) = scene_run_counts(scene, run) + 1;
+    % Count how many of each target (column 2) in this run
+    target_counts_per_run(run, :) = histcounts(this_run(:,2), 0.5:1:4.5);
 end
 
-% Display a few rows for verification
-disp(array2table(scene_run_counts(1:10,:), ...
-    'VariableNames', compose('Run%d', 1:num_runs), ...
-    'RowNames', compose('Scene%d', 1:10)));
+% Convert to table for nicer display
+target_table = array2table(target_counts_per_run, ...
+    'VariableNames', {'Target1','Target2','Target3','Target4'}, ...
+    'RowNames', compose('Run%d', 1:num_runs));
 
-% Check if any scene appears more than once in a run
-if any(scene_run_counts(:) > 1)
-    warning('THERE WAS MORE THAN ONE SCENE PER RUN');
-else
-    disp('All scenes occur at most once per run.');
-end
+disp(target_table);
+
 
 
 % Save the randomization matrix to a .mat file
