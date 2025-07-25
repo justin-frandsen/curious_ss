@@ -45,8 +45,8 @@ shape_inds = 1:length(all_shapes);
 % target inds we can use these for randomization because we will select target inds for each person later
 target_inds = [1 2 3 4]; % Indices of target shapes
 distractor_inds = [1 2 3]; % Indices of distractor shapes
-
-
+condition_inds = [3 2 1 1 1 1 1 1]; % Valid==1 and Invalid==2 or 3
+condition_inds_second_half = [1 2 3 1 2 3]; % No validity in second half
 
 
 %% loop through each subject
@@ -110,46 +110,69 @@ for sub_num = 1:total_subs
     % First half targets
     first_half_targets = randsample(shape_inds, length(target_inds)); % Randomly select 74 scenes for the first half
     first_half_distractors = setdiff(shape_inds, first_half_targets); % Remaining 37 scenes for the second half
-    first_half_critical_distractors = randsample(first_half_distractors, 3); %select 3 critical distractors for the first half
+    first_half_critical_distractors = randsample(first_half_distractors, 4); %select 3 critical distractors for the first half
     first_half_distractors = setdiff(first_half_distractors, first_half_critical_distractors); % Remaining distractors for the first half
 
     scene_randomizor_first_half = sortrows(scene_randomizor_first_half, 1);
+    % Assign distractor indices (1–3) and validity (0 or 1) in groups of 3
+    rep_num = length(scene_randomizor_first_half)/3;
+    row_index = 1;
+    for i = 1:rep_num
+        % Distractor indices (1–3)
+        scene_randomizor_first_half(row_index:row_index+2, 4) = randperm(3);
+        row_index = row_index + 3;
+    end
+
+    rep_num = length(scene_randomizor_first_half)/length(condition_inds);
+    row_index = 1;
+    for i = 1:rep_num
+        % Validity (0 or 1)
+        scene_randomizor_first_half(row_index:row_index+7, 5) = condition_inds(randperm(length(condition_inds)));
+        row_index = row_index + 8; % Move to the next set of rows
+    end
+
     scene_randomizor_second_half = sortrows(scene_randomizor_second_half, 1);
+    % Second half (runs 5–6): no distractors or conditions
+    scene_randomizor_second_half(:, 4) = -1;    % No distractors
+    rep_num = length(scene_randomizor_second_half)/length(condition_inds_second_half);
+    row_index = 1;
+    for i = 1:rep_num
+        % Validity (0 or 1)
+        scene_randomizor_second_half(row_index:row_index+5, 5) = condition_inds_second_half(randperm(length(condition_inds_second_half)));
+        row_index = row_index + 6; % Move to the next set of rows
+    end
 
     %% RUN LOOP
     for run_num = 1:total_runs
-        %get run struct name
+        % Get run struct name
         run_struct_name = sprintf('run%d', run_num);
 
-        %create run struct
+        % Create run struct
         run_struct = struct();
-        
+
         if run_num <= 4
-            % For runs 1-4, use the first half of the scenes
+            % First half: get corresponding trials
             scene_randomizor = scene_randomizor_first_half(scene_randomizor_first_half(:,3) == run_num, :);
-            rep_num = length(scene_randomizor_first_half)/3; % Number of repetitions in the first half
-            row_index = 1;
-            for i = 1:rep_num
-                scene_randomizor(row_index:row_index+2, 4) = randperm(3); % Assign distractor inds (1 to 3)
-                row_index = row_index + 3; % Move to the next set of rows
-            end
         else
-            % For runs 5-6, use the second half of the scenes
+            % Second half (runs 5–6): no distractors or conditions
             scene_randomizor = scene_randomizor_second_half(scene_randomizor_second_half(:,3) == run_num, :);
         end
-        %add variables to save out
+
+        % Store values into run struct
         run_struct.('first_half_targets') = first_half_targets;
         run_struct.('first_half_distractors') = first_half_distractors;
         run_struct.('first_half_critical_distractors') = first_half_critical_distractors;
         run_struct.('scene_randomizor') = scene_randomizor;
 
-        % Add the run struct to the subject struct and apply runStructName
+        % Add to subject struct
         subject_struct.(run_struct_name) = run_struct;
     end
+
     % Add the subject struct to the main struct and apply subStructName
     randomizor_matrix.(sub_struct_name) = subject_struct;
 end
 
+%% check the randomization
 num_runs = 6;
 target_types = 1:4;
 target_counts_per_run = zeros(num_runs, numel(target_types));
@@ -168,7 +191,6 @@ target_table = array2table(target_counts_per_run, ...
     'RowNames', compose('Run%d', 1:num_runs));
 
 disp(target_table);
-
 
 
 % Save the randomization matrix to a .mat file
