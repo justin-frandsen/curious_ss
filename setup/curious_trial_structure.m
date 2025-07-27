@@ -4,6 +4,8 @@
 % Date: 25/07/2025
 % Description: Generates a balanced trial structure for the curious_ss
 % experiment.
+
+%Add checking that the first two presentation of each target are valid and that we can't see the same target 3 times in a row.
 %-------------------------------------------------------------------------
 
 %% SETTINGS
@@ -64,7 +66,7 @@ for sub_num = 1:total_subs
     % Col 4: Validity (1=valid, 2=invalid, 3=neutral)
     % Col 5: Run Number
     trial_matrix = [all_scene_ids(:), trial_list, condition_inds(:), zeros(total_trials,1)];
-    lookie = trial_matrix;
+    
     %% STEP 2: ASSIGN TRIALS TO RUNS WITH BALANCED TARGETS AND UNIQUE SCENES
     assigned = false;
     while ~assigned
