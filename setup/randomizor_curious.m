@@ -1,203 +1,195 @@
 %-------------------------------------------------------------------------
 % Script: randomizor_curious.m
 % Author: Justin Frandsen
-% Date: 22/07/2025 %dd/mm/yyyy
+% Date: 2025/08/05 yyyy/mm/dd
 % Description: Prerandomizor for the curious_ss experiment.
 %
 % Usage:
-% - fileDirectory: Set total subs, run, and trials, and it will randomize 
-%   the order of presentation of the various scenes and trial variables.
-% - Script will output a struct containing this information.
+% - Set total subs, runs, and trials
+% - Outputs a struct with randomized scene/trial parameters
 %-------------------------------------------------------------------------
+
 %% SETTINGS
-total_subs = 500;
-total_runs = 6;
-number_trials = 72; %72 trials per run, 6 runs total
-total_trials = total_runs * number_trials; % Total trials across all runs
-% Parameters
-total_scenes = 108;
-total_reps_per_scene = 4;
-total_scenes_first_half = 72; % Total scenes in the first half of the experiment
+total_subs              = 500;
+total_runs              = 6;
+number_trials           = 72;                        % Trials per run
+total_trials            = total_runs * number_trials;
 
-% there is a total of 432 trials because we have 4 targets and 3 distractors in the first half so we have to
-% have the trials divisible by 12. This also divides nicely into 6 runs of 72 trials each, so that why 6 runs is chosen.
-% In the second half of the experiment we will have the distractors become targets and the targets become distractors.
-% so we will be adding a target that was never a distractor before to test the learning of the distractor shapes.
+total_scenes            = 108;
+total_reps_per_scene    = 4;
+total_scenes_first_half = 72;
 
-% Restoring default RNG settings
+% Trial conditions
+target_inds             = [1 2 3 4];
+distractor_inds         = [1 2 3];
+condition_inds          = [1 2 0 0 0 0 0 0];         % 1 = valid, 2 = invalid
+condition_inds_second_half = [0 1 2 0 1 2];          % Second half (no validity)
+
+% Generate all permutations of [0 0 1 1] for target direction assignment
+t_directions            = [0 0 1 1];
+all_t_directions        = unique(perms(t_directions), 'rows');
+
+% Restore RNG
 rng('shuffle');
 
-% Initialize the main struct to hold 500 sub-structs (subjects)
-randomizor_matrix = struct();
-
-% get all shapes in the shape dir
+% Get all shape files
 all_shapes = dir('../stimuli/shapes/transparent_black/*');
-all_shapes = all_shapes(~ismember({all_shapes.name},{'.','..', '.DS_Store'}));
-
-%% CREATE INDEXES FOR RANDOMIZATION
-% Indices for main and practice scenes
-% These will be used to randomize the order of scenes in the trials
-scenes_inds = 1:total_scenes;
-% Indices for all scenes
+all_shapes = all_shapes(~ismember({all_shapes.name}, {'.','..','.DS_Store'}));
 shape_inds = 1:length(all_shapes);
 
-% target inds we can use these for randomization because we will select target inds for each person later
-target_inds = [1 2 3 4]; % Indices of target shapes
-distractor_inds = [1 2 3]; % Indices of distractor shapes
-condition_inds = [1 2 0 0 0 0 0 0]; % Valid==1 and Invalid==2 or 3
-condition_inds_second_half = [0 1 2 0 1 2]; % No validity in second half
+%% MAIN SUBJECT LOOP
+randomizor_matrix = struct();
 
-%% loop through each subject
 for sub_num = 1:total_subs
-    %creates a struct name for this subject
     sub_struct_name = sprintf('subj%d', sub_num);
-    
-    % Create the subject struct
-    subject_struct = struct();
+    subject_struct  = struct();
+    scene_randomizor = zeros(total_scenes * 4, 6);
 
-    scene_randomizor= zeros(total_scenes*4, 6); % Initialize scene randomizor matrix
-
-    % Generate scenes and repetition labels
+    %-------------------------------------------------
+    % Fill scene and repetition numbers
+    %-------------------------------------------------
     row_index = 1;
     for scene_num = 1:total_scenes
         for scene_rep = 1:total_reps_per_scene
-            scene_randomizor(row_index, 1) = scene_num; % Scene number
+            scene_randomizor(row_index, 1) = scene_num;
             scene_randomizor(row_index, 2) = scene_rep;
             row_index = row_index + 1;
         end
     end
 
-    % so here we make a matrix containing all of the scenes. We then randomize the order that the targets are presented in
-    % because when we later add the run we use the same permutation for all runs this insures that there is diff scenes for
-    % each run and that which target gets to each run is also random.
-
-    % Initialize scene_randomizor matrix
-    % Col 1: Scene number
-    % Col 2: Scene rep number (1 to 4)
-    % Col 3: Run number (to be filled)
-    % Col 4: Distractor inds (1-3 in first half, none in second half)
-    % Col 5: Target inds (1-4, to be filled later)
-    % Col 6: Condition (1 is invalid, 0 is valid in first half, no validity in second half)
-
+    %-------------------------------------------------
+    % Assign run numbers to scene repetitions
+    %-------------------------------------------------
     row_index = 1;
-    rep_num = length(scene_randomizor)/6;
-    for i = 1:rep_num
-        scene_randomizor(row_index:row_index+5, 3) = randperm(6); % Assign runs 1 to 6
-        row_index = row_index + 6; % Move to the next set of rows
+    for i = 1:(length(scene_randomizor) / 6)
+        scene_randomizor(row_index:row_index+5, 3) = randperm(6);
+        row_index = row_index + 6;
     end
 
-    % First half targets
-    first_half_targets = randsample(shape_inds, length(target_inds)); % Randomly select 74 scenes for the first half
-    first_half_distractors = setdiff(shape_inds, first_half_targets); % Remaining 37 scenes for the second half
-    first_half_critical_distractors = randsample(first_half_distractors, 4); %select 3 critical distractors for the first half
-    first_half_distractors = setdiff(first_half_distractors, first_half_critical_distractors); % Remaining distractors for the first half
+    %-------------------------------------------------
+    % Target & Distractor Shape Assignment
+    %-------------------------------------------------
+    first_half_targets              = randsample(shape_inds, length(target_inds));
+    first_half_distractors          = setdiff(shape_inds, first_half_targets);
+    first_half_critical_distractors = randsample(first_half_distractors, 4);
+    noncritical_distractors         = setdiff(first_half_distractors, first_half_critical_distractors);
 
-    this_target_ind = 1;
+    target_associations             = [1 2 3 randi(3)];
+    target_associations             = target_associations(randperm(4));
+    critical_distractors_associations = randperm(3);
+
+    %-------------------------------------------------
+    % Distractor Pairs (First Half)
+    %-------------------------------------------------
+    unique_pairs    = nchoosek(noncritical_distractors, 2);
+    flipped_pairs   = unique_pairs(:, [2 1]);
+    all_pairs       = [unique_pairs; flipped_pairs];
+    all_distractor_pairs = repmat(all_pairs, 2, 1);
+
+    first_half_distractors = shuffle_matrix(all_distractor_pairs, [1 2], [2 2]);
+
+    row_index = 1;
+    for t_run = 1:4
+        first_half_distractors(row_index:row_index+71, 3) = t_run;
+        row_index = row_index + 72;
+    end
+
+    %-------------------------------------------------
+    % Distractor Triples (Second Half)
+    %-------------------------------------------------
+    unique_triples = nchoosek(noncritical_distractors, 3);
+    all_triples    = [];
+
+    for i = 1:size(unique_triples, 1)
+        all_triples = [all_triples; perms(unique_triples(i, :))];
+    end
+
+    second_half_distractors = shuffle_matrix(all_triples, [1 2 3], [3 3 3]);
+
+    row_index = 1;
+    for t_run = 1:2
+        second_half_distractors(row_index:row_index+71, 3) = t_run + 4;  % Run 5 & 6
+        row_index = row_index + 72;
+    end
+
     %% RUN LOOP
-    for run_num = 1:total_runs
-        % Get run struct name
-        run_struct_name = sprintf('run%d', run_num);
+    this_target_ind = 1;
 
-        % Create run struct
+    for run_num = 1:total_runs
+        run_struct_name = sprintf('run%d', run_num);
         run_struct = struct();
 
+        %-----------------------------
+        % First Half (Runs 1–4)
+        %-----------------------------
         if run_num <= 4
-            % First half: get corresponding trials
             this_run_scene_randomizor = scene_randomizor(scene_randomizor(:,3) == run_num, :);
 
-            % Assign distractor indices (1–3) and validity (0 or 1) in groups of 3
-            rep_num = length(this_run_scene_randomizor)/3;
+            % Distractors (groups of 3)
             row_index = 1;
-            for i = 1:rep_num
-                % Distractor indices (1–3)
+            for i = 1:(length(this_run_scene_randomizor)/3)
                 this_run_scene_randomizor(row_index:row_index+2, 4) = randperm(3);
                 row_index = row_index + 3;
             end
 
-            %shuffle the matrix containing this runs information
+            % Shuffle and assign target/condition
             shuffled_this_run_scene_randomizor = this_run_scene_randomizor(randperm(size(this_run_scene_randomizor, 1)), :);
 
-            rep_num = length(shuffled_this_run_scene_randomizor)/length(condition_inds);
             row_index = 1;
-            for i = 1:rep_num
-                % Assign target indices (1–4)
+            for i = 1:(length(shuffled_this_run_scene_randomizor)/length(condition_inds))
                 shuffled_this_run_scene_randomizor(row_index:row_index+7, 5) = this_target_ind;
                 shuffled_this_run_scene_randomizor(row_index:row_index+7, 6) = condition_inds(randperm(length(condition_inds)));
-
-                row_index = row_index + 8; % Move to the next set of rows
-                this_target_ind = this_target_ind + 1; % Increment target index
-                if this_target_ind > length(target_inds)
-                    this_target_ind = 1; % Reset to 1 if exceeds number of targets
-                end
+                row_index = row_index + 8;
+                this_target_ind = mod(this_target_ind, 4) + 1;
             end
 
-            %shuffle the matrix containing this runs information
-            %shuffled_this_run_scene_randomizor = shuffled_this_run_scene_randomizor(randperm(size(shuffled_this_run_scene_randomizor, 1)), :);
+            shuffled_this_run_scene_randomizor = shuffle_matrix(shuffled_this_run_scene_randomizor, [1 4 5], [1 3 2], 10000);
+            this_run_distractors = first_half_distractors(first_half_distractors(:,3) == run_num, :);
 
-            %if not mixed enough it just keeps remixing until it is remixed to the correct format
-            %while true
-            %    shuffled_this_run_scene_randomizor = shuffled_this_run_scene_randomizor(randperm(length(shuffled_this_run_scene_randomizor)), :);
-            %    
-            %    if ~any(diff(shuffled_this_run_scene_randomizor(:, 1)) > 2)
-            %        break;
-            %    end
-            %end
-        elseif run_num > 4
-            % Second half (runs 5–6): no distractors and random conditions
+        %-----------------------------
+        % Second Half (Runs 5–6)
+        %-----------------------------
+        else
             this_run_scene_randomizor = scene_randomizor(scene_randomizor(:,3) == run_num, :);
-
-            %shuffle the matrix containing this runs information
             shuffled_this_run_scene_randomizor = this_run_scene_randomizor(randperm(size(this_run_scene_randomizor, 1)), :);
 
-            rep_num = length(shuffled_this_run_scene_randomizor)/length(condition_inds_second_half);
             row_index = 1;
-            for i = 1:rep_num
-                % Assign target indices (1–4)
+            for i = 1:(length(shuffled_this_run_scene_randomizor)/length(condition_inds_second_half))
                 shuffled_this_run_scene_randomizor(row_index:row_index+5, 5) = this_target_ind;
                 shuffled_this_run_scene_randomizor(row_index:row_index+5, 6) = condition_inds_second_half(randperm(length(condition_inds_second_half)));
-
-                row_index = row_index + 6; % Move to the next set of rows
-                this_target_ind = this_target_ind + 1; % Increment target index
-                if this_target_ind > length(target_inds)
-                    this_target_ind = 1; % Reset to 1 if exceeds number of targets
-                end
+                row_index = row_index + 6;
+                this_target_ind = mod(this_target_ind, 4) + 1;
             end
+
+            shuffled_this_run_scene_randomizor = shuffle_matrix(shuffled_this_run_scene_randomizor, [1 5], [1 2]);
+            this_run_distractors = second_half_distractors(second_half_distractors(:,3) == run_num, :);
         end
 
-        % Store values into run struct
-        run_struct.('first_half_targets') = first_half_targets;
-        run_struct.('first_half_distractors') = first_half_distractors;
-        run_struct.('first_half_critical_distractors') = first_half_critical_distractors;
-        run_struct.('scene_randomizor') = shuffled_this_run_scene_randomizor;
+        %-----------------------------
+        % Target Directions Assignment
+        %-----------------------------
+        rep_num = length(shuffled_this_run_scene_randomizor) / length(all_t_directions);
+        this_run_all_t_directions = repmat(all_t_directions, rep_num, 1);
+        this_run_all_t_directions = this_run_all_t_directions(randperm(size(this_run_all_t_directions, 1)), :);
 
-        % Add to subject struct
+        %-----------------------------
+        % Store in run struct
+        %-----------------------------
+        run_struct.first_half_targets               = first_half_targets;
+        run_struct.noncritical_distractors          = noncritical_distractors;
+        run_struct.first_half_critical_distractors  = first_half_critical_distractors;
+        run_struct.scene_randomizor                 = shuffled_this_run_scene_randomizor;
+        run_struct.t_directions                     = this_run_all_t_directions;
+        run_struct.target_associations              = target_associations;
+        run_struct.critical_distractors_associations = critical_distractors_associations;
+        run_struct.this_run_distractors             = this_run_distractors;
+
         subject_struct.(run_struct_name) = run_struct;
     end
 
-    % Add the subject struct to the main struct and apply subStructName
+    % Add subject to master struct
     randomizor_matrix.(sub_struct_name) = subject_struct;
 end
 
-%% check the randomization
-num_runs = 6;
-target_types = 1:4;
-target_counts_per_run = zeros(num_runs, numel(target_types));
-
-for run = 1:num_runs
-    % Get all rows for this run
-    this_run = scene_randomizor(scene_randomizor(:,3) == run, :);
-
-    % Count how many of each target (column 2) in this run
-    target_counts_per_run(run, :) = histcounts(this_run(:,2), 0.5:1:4.5);
-end
-
-% Convert to table for nicer display
-target_table = array2table(target_counts_per_run, ...
-    'VariableNames', {'Target1','Target2','Target3','Target4'}, ...
-    'RowNames', compose('Run%d', 1:num_runs));
-
-disp(target_table);
-
-
-% Save the randomization matrix to a .mat file
-%save ../trial_structure_files/randomizor.mat randomizor_matrix
+% Save result
+% save ../trial_structure_files/randomizor.mat randomizor_matrix
