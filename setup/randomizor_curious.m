@@ -40,6 +40,8 @@ shape_inds = 1:length(all_shapes);
 %% MAIN SUBJECT LOOP
 randomizor_matrix = struct();
 
+fprintf('[INFO] Starting subject loop for %d subjects...\n', total_subs);
+
 for sub_num = 1:total_subs
     sub_struct_name = sprintf('subj%d', sub_num);
     subject_struct  = struct();
@@ -187,9 +189,14 @@ for sub_num = 1:total_subs
         subject_struct.(run_struct_name) = run_struct;
     end
 
-    % Add subject to master struct
-    randomizor_matrix.(sub_struct_name) = subject_struct;
+    if mod(sub_num, 50) == 0
+        fprintf('[INFO] Subject %d/%d complete\n', sub_num, total_subs);
+    end
 end
 
-% Save result
-% save ../trial_structure_files/randomizor.mat randomizor_matrix
+fprintf('[INFO] All subject randomization complete.\n');
+
+if save_output
+    save('../trial_structure_files/randomizor.mat', 'randomizor_matrix');
+    fprintf('[INFO] Saved to ../trial_structure_files/randomizor.mat\n');
+end

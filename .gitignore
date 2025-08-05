@@ -2,7 +2,7 @@
 *.asv
 *.m~
 *.fig
-*.mat
+#*.mat
 *.mex*
 *.mdl
 *.slx
