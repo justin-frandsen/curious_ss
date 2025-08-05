@@ -310,7 +310,7 @@ for run_looper = run_num:total_runs
         % Blank ISI
         Screen('DrawTexture', w, fixation);
         Screen('flip', w);
-        WaitSecs(.5); % 500 ms ITI
+        WaitSecs(.5); % 500 ms ISI
         
         % Central Fixation
         Screen('DrawTexture', w, target1);
@@ -321,11 +321,11 @@ for run_looper = run_num:total_runs
 
         Screen('DrawTexture', w, fixation);
         Screen('flip', w);
-        WaitSecs(.5); % 500 ms ITI
+        WaitSecs(.5); % 500 ms ISI
 
         Screen('DrawTexture', w, search);
         Screen('flip', w);
-        WaitSecs(.5); % 500 ms ITI
+        WaitSecs(.5); % 500 ms ISI
 
         Screen('DrawTexture', w, feedback_correct);
         Screen('flip', w);
