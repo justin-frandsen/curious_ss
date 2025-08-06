@@ -25,6 +25,23 @@
 %   containing all matlab script variables, and a .edf file containing
 %   eyetracking data.
 %-----------------------------------------------------------------------
+%{
+Example of a trial for the data structure:
+trialData(trial).subjectID       = 101;
+trialData(trial).run             = 2;
+trialData(trial).sceneID         = 73;
+trialData(trial).targetShape     = 2;
+trialData(trial).distractorShape = [1 3];
+trialData(trial).condition       = 'invalid';
+trialData(trial).RT              = 583;   % in ms
+trialData(trial).accuracy        = 1;
+trialData(trial).stimOnsetTime   = GetSecs;
+trialData(trial).responseTime    = responseTime;
+trialData(trial).responseKey     = 'f';
+%}
+
+
+
 %% CLEAR VARIABLES
 clc;
 close all;
@@ -39,7 +56,8 @@ screens = Screen('Screens');
 scrID = max(screens);
 
 %% EYETRACKER SETTINGS
-mx = 1;
+%we initialize this because sometimes if its not set it checks vars that don't exist and throws an error
+mx = 1; 
 my = 1;
 
 % RECORD PICS/TRACK EYES?
@@ -47,6 +65,7 @@ record_pics = 'N';  % change to 'Y' to record pictures of stimuli
 computer = 'PC'; % Mac or PC
 refresh_rate = 60; % Hz of monitor
 eyetracking = 'N'; % Y or N
+
 
 %% GET SUBJECT NUMBER AND RUN NUMBER AND CHECK IF THEY ARE VALID/EXIST
 % Check if sub_num is defined, if not prompt user for input
@@ -84,6 +103,8 @@ else
         error('Invalid run number. Please clear the workspace.');
     end
 end
+
+
 
 %% Check if experimenter wants to proceed
 fprintf('Proceed with subject number: %d and run number: %d? (Y/N)\n', sub_num, run_num);
@@ -146,10 +167,10 @@ fix.reqDur = 500;
 
 % Run information
 main_runs = 6;
-practice_runs = 1;
+practice_runs = 0;
 total_runs = main_runs + practice_runs;
 
-total_trials = 74;
+total_trials = 72;
 
 %Fonts
 my_font = 'Arial'; % for any text
@@ -278,6 +299,41 @@ trialcounter = 0;
 
 %% EXPERIMENT START
 for run_looper = run_num:total_runs
+    if run_looper <= 4
+        phase = 'training';
+    elseif run_looper > 4
+        phase = 'testing';
+    end
+
+    %% INITIALIZE TRIAL STRUCT
+    trials(1:72) = struct( ...
+        'sub_num', sub_num, ...
+        'run_num', run_looper, ...
+        'phase', phase, ... % training or testing
+        'trial_num', 1:total_trials, ...
+        'scene_idx', [], ...
+        'target_shape_idx', [], ...
+        'target_shape_association', [], ...
+        'critical_distractor_idx', [], ...
+        'critical_distractor_association', [], ...
+        'noncritical_distractor_idx', [], ...
+        'condition', [], ...
+        't_direction', [], ...
+        'response_key', '', ...
+        'rt', [], ...
+        'accuracy', [], ...
+        'timestamp', '' ...
+    );
+
+    for t = 1:total_trials
+        trials(t).trial_num = t;
+    end
+
+
+    % LOG FILE SETTINGS
+    logFile = sprintf('data/log_files/subj%d_run%dlog.txt', sub_num, run_looper);
+    sessionStart = now;
+
     % This is where we will show instructions do this at the end!!!
     %instruct_curious_ss(sub_num, run_looper, w, scrID, rect, col); % show instructions will need to change this to a function later
 
@@ -331,6 +387,19 @@ for run_looper = run_num:total_runs
         Screen('flip', w);
         WaitSecs(.5); % 500 ms ITI
     end
+
+    %% END OF RUN
+    % Show end of run message
+    %% ENTER CODE HERE
+
+    % log session info
+    sessionEnd = now;
+    log_session_info(sub_num, run_looper, total_trials, sessionStart, sessionEnd, logFile);
+
+    % 
+    trialTable = struct2table(trials);
+
+
 end
 %% END EXPERIMENT
 % Show end of experiment message
