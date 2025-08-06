@@ -155,7 +155,30 @@ for sub_num = 1:total_subs
 
             % Use first-half distractors
             run_distractors = first_half_distractors(first_half_distractors(:,3) == run, :);
-
+            
+            all_possible_locations = zeros(72, 4);
+            loc1 = [1 2];
+            loc2 = [3 4];
+            loc3 = [5 6];
+            for trial = 1:number_trials_per_run
+                rand1 = loc1(randperm(2));
+                rand2 = loc2(randperm(2));
+                rand3 = loc3(randperm(2));
+            
+                possible_locations = [rand1(1), rand2(1), rand3(1), 0];  % first 3 are random from each group
+            
+                this_trial_distractor = this_run_scene(trial, DISTRACTOR);
+                this_trial_distractor_associations = critical_distractor_associations(this_trial_distractor);
+            
+                if this_trial_distractor_associations == 1
+                    possible_locations(4) = setdiff(loc1, rand1(1));
+                elseif this_trial_distractor_associations == 2
+                    possible_locations(4) = setdiff(loc2, rand2(1));
+                elseif this_trial_distractor_associations == 3
+                    possible_locations(4) = setdiff(loc3, rand3(1)); % fixed to use loc3
+                end
+                all_possible_locations(trial, :) = possible_locations;
+            end
         else
             % Runs 5–6: No distractors, just shuffle
             this_run_scene = this_run_scene(randperm(size(this_run_scene, 1)), :);
@@ -174,6 +197,26 @@ for sub_num = 1:total_subs
 
             % Use second-half distractors
             run_distractors = second_half_distractors(second_half_distractors(:,3) == run, :);
+
+            all_possible_locations = zeros(72, 4);
+            loc1 = [1 2];
+            loc2 = [3 4];
+            loc3 = [5 6];
+            for trial = 1:number_trials_per_run
+                rand1 = loc1(randperm(2));
+                rand2 = loc2(randperm(2));
+                rand3 = loc3(randperm(2));
+            
+                possible_locations = [rand1(1), rand2(1), rand3(1), 0];  % first 3 are random from each group
+                
+                remaining_distractors = [...
+                                        setdiff(loc1, rand1(1)), ...
+                                        setdiff(loc2, rand2(1)), ...
+                                        setdiff(loc3, rand3(1))...
+                                        ];
+                
+                possible_locations(4) = remaining_distractors(randi(length(remaining_distractors)));  % random from remaining
+            end
         end
 
         % Generate target direction matrix
@@ -190,6 +233,7 @@ for sub_num = 1:total_subs
         run_struct.target_associations               = target_associations;
         run_struct.critical_distractors_associations = critical_distractor_associations;
         run_struct.this_run_distractors              = run_distractors;
+        run_struct.all_possible_locations            = all_possible_locations;
 
         subject_struct.(run_name) = run_struct;
     end
