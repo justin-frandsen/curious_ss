@@ -26,18 +26,18 @@
 %   eyetracking data.
 %-----------------------------------------------------------------------
 %{
-Example of a trial for the data structure:
-trialData(trial).subjectID       = 101;
-trialData(trial).run             = 2;
-trialData(trial).sceneID         = 73;
-trialData(trial).targetShape     = 2;
-trialData(trial).distractorShape = [1 3];
-trialData(trial).condition       = 'invalid';
-trialData(trial).RT              = 583;   % in ms
-trialData(trial).accuracy        = 1;
-trialData(trial).stimOnsetTime   = GetSecs;
-trialData(trial).responseTime    = responseTime;
-trialData(trial).responseKey     = 'f';
+trialData(trial).subjectID       = sub_num;
+trialData(trial).run             = run_looper;
+trialData(trial).sceneID         = scene_idx;
+trialData(trial).targetShape     = target_shape_idx;
+trialData(trial).distractorShape = distractor_shape_idxs;   % e.g., [1 3]
+trialData(trial).condition       = condition_label;          % e.g., 'valid' or 'invalid'
+trialData(trial).RT              = rt;                       % in milliseconds
+trialData(trial).accuracy        = isCorrect;                % 1 or 0
+trialData(trial).stimOnsetTime   = stimOnset;                % from GetSecs
+trialData(trial).responseTime    = responseTime;             % from GetSecs
+trialData(trial).responseKey     = responseKey;              % e.g., 'f'
+
 %}
 
 
@@ -65,6 +65,7 @@ record_pics = 'N';  % change to 'Y' to record pictures of stimuli
 computer = 'PC'; % Mac or PC
 refresh_rate = 60; % Hz of monitor
 eyetracking = 'N'; % Y or N
+dummymode = 1; % 0 for real eyetracking, 1 for dummy mode (no eyetracking)
 
 
 %% GET SUBJECT NUMBER AND RUN NUMBER AND CHECK IF THEY ARE VALID/EXIST
@@ -299,18 +300,22 @@ trialcounter = 0;
 
 %% EXPERIMENT START
 for run_looper = run_num:total_runs
+    % LOG FILE SETTINGS
+    logFile = sprintf('data/log_files/subj%d_run%dlog.txt', sub_num, run_looper);
+    sessionStart = now;
+
     if run_looper <= 4
         phase = 'training';
     elseif run_looper > 4
         phase = 'testing';
     end
 
-    %% INITIALIZE TRIAL STRUCT
-    trials(1:72) = struct( ...
+    %% INITIALIZE BX STRUCT
+    bx_trial_info(1:72) = struct( ...
         'sub_num', sub_num, ...
         'run_num', run_looper, ...
         'phase', phase, ... % training or testing
-        'trial_num', 1:total_trials, ...
+        'trial_num', [], ...
         'scene_idx', [], ...
         'target_shape_idx', [], ...
         'target_shape_association', [], ...
@@ -322,17 +327,18 @@ for run_looper = run_num:total_runs
         'response_key', '', ...
         'rt', [], ...
         'accuracy', [], ...
-        'timestamp', '' ...
+        'timestamp', datestr(now, 'yyyy-mm-dd HH:MM:SS.FFF') ...
     );
 
     for t = 1:total_trials
         trials(t).trial_num = t;
     end
 
-
-    % LOG FILE SETTINGS
-    logFile = sprintf('data/log_files/subj%d_run%dlog.txt', sub_num, run_looper);
-    sessionStart = now;
+    %% INITIALIZE FIXATION STRUCT
+    fixationStruct = struct([]);
+    fixationCounter = 0; % Counter for fixation data
+    currentFixationRect = 0;
+    previousFixationRect = 0;
 
     % This is where we will show instructions do this at the end!!!
     %instruct_curious_ss(sub_num, run_looper, w, scrID, rect, col); % show instructions will need to change this to a function later
@@ -379,9 +385,148 @@ for run_looper = run_num:total_runs
         Screen('flip', w);
         WaitSecs(.5); % 500 ms ISI
 
+        %% SEARCH DISPLAY
         Screen('DrawTexture', w, search);
-        Screen('flip', w);
-        WaitSecs(.5); % 500 ms ISI
+        stimOnsetTime = Screen('Flip', w); %this flip displays the scene with all four shapes
+
+        if strcmp(eyetracking, 'Y')
+            Eyelink('Message', 'SYNCTIME');
+            Eyelink('Message', 'Scene Presentation:')  
+        end
+
+        trialActive = true;  % Flag to keep the trial going
+        responseMade = false;
+
+        while trialActive && (GetSecs() - startTime <= 15)
+            %-----------------------------------------------------
+            % CHECK FOR RESPONSE KEY PRESS
+            %-----------------------------------------------------
+            [key_is_down, secs, key_code] = KbCheck;
+            if key_is_down && ~responseMade
+                responseKey = KbName(key_code);
+                if iscell(responseKey)
+                    responseKey = responseKey{1};
+                end
+                if ismember(responseKey, validKeys)
+                    response = responseKey;
+                    RT = round((secs - stimOnsetTime) * 1000);
+                    responseMade = true;
+                
+                    if dummymode == 0
+                        Eyelink('Message', 'Key pressed');
+                    end
+                
+                    % Flag to end the trial after logging last fixation
+                    trialActive = false;
+                end
+            end
+        
+            %-----------------------------------------------------
+            % TRACK GAZE OR MOUSE
+            %-----------------------------------------------------
+            if dummymode == 0
+                eyelinkError = Eyelink('CheckRecording');
+                if eyelinkError ~= 0
+                    fprintf('Eyelink error: %d\n', eyelinkError);
+                    break;
+                end
+                if Eyelink('NewFloatSampleAvailable') > 0
+                    evt = Eyelink('NewestFloatSample');
+                    if eye_used ~= -1
+                        x = evt.gx(eye_used+1);
+                        y = evt.gy(eye_used+1);
+                        if x ~= el.MISSING_DATA && y ~= el.MISSING_DATA && evt.pa(eye_used+1) > 0
+                            mx = x;
+                            my = y;
+                        end
+                    end
+                end
+            else
+                [mx, my] = GetMouse(w);
+            end
+        
+            %-----------------------------------------------------
+            % CHECK IF GAZE IS IN SHAPE AND LOG FIXATION
+            %-----------------------------------------------------
+            isInInterestArea = false;
+            for interestArea = 1:4
+                if IsInRect(mx, my, shapePositions.savedPositions{sceneInds, interestArea})
+                    isInInterestArea = true;
+                    currentFixationRect = interestArea;
+                    break;
+                end
+            end
+        
+            if ~isInInterestArea
+                currentFixationRect = 0;
+            end
+        
+            % Fixation transition
+            if previousFixationRect ~= currentFixationRect
+                if currentFixationRect ~= 0
+                    fixationStartTime = GetSecs();
+                elseif previousFixationRect ~= 0
+                    fixationEndTime = GetSecs();
+                    fixationDuration = (fixationEndTime - fixationStartTime) * 1000;
+                    if fixationDuration > fixationTimeThreshold
+                        fixationCounter = fixationCounter + 1;
+                        fixationData(fixationCounter) = struct( ...
+                            'sub_num', sub_num, ...
+                            'run_num', run_looper, ...
+                            'trial_num', trialNum, ...
+                            'fixation_onset', fixationStartTime - stimOnsetTime, ...
+                            'fixation_offset', fixationEndTime - stimOnsetTime, ...
+                            'fixation_num', fixationCounter, ...
+                            'duration_ms', fixationDuration, ...
+                            'fixated_rect', previousFixationRect, ...
+                            'extra_target', thisTrialExtraTarget, ...
+                            'incorrect_target_location', thisTrialIncorrectTargetLocation, ...
+                            'target_shape_idx', targetInds, ...
+                            'target_position_idx', targetPositionInds ...
+                        );
+                    end
+                end
+            end
+            previousFixationRect = currentFixationRect;
+        end
+
+        % Logging the last fixation if it's ongoing at the end of the loop
+        if previousFixationRect ~= 0
+            fixationEndTime = GetSecs();
+            fixationDuration = (fixationEndTime - fixationStartTime) * 1000;
+            % Logging last fixation data
+            if fixationDuration > fixationTimeThreshold
+                fixationCounter = fixationCounter + 1;
+                fixationData(fixationCounter) = struct( ...
+                    'sub_num', sub_num, ...
+                    'run_num', run_looper, ...
+                    'trial_num', trialNum, ...
+                    'fixation_num', fixationCounter, ...
+                    'duration_ms', fixationDuration, ...
+                    'fixated_rect', previousFixationRect, ...
+                    'extra_target', thisTrialExtraTarget, ...
+                    'incorrect_target_location', thisTrialIncorrectTargetLocation, ...
+                    'target_shape_idx', targetInds, ...
+                    'target_position_idx', targetPositionInds ...
+                );     
+            end
+        end
+
+        %% LOG OUTPUT VARIABLES
+        bx_trial_info(trial_looper).trial_onset                     =
+        bx_trial_info(trial_looper).trial_offset                    =
+        bx_trial_info(trial_looper).response_clock_time             =
+        bx_trial_info(trial_looper).scene_idx                       =
+        bx_trial_info(trial_looper).target_shape_idx                =
+        bx_trial_info(trial_looper).target_shape_association        =
+        bx_trial_info(trial_looper).critical_distractor_idx         =
+        bx_trial_info(trial_looper).critical_distractor_association =
+        bx_trial_info(trial_looper).noncritical_distractor_idx      =
+        bx_trial_info(trial_looper).condition                       =
+        bx_trial_info(trial_looper).t_direction                     =
+        bx_trial_info(trial_looper).response_key                    =
+        bx_trial_info(trial_looper).rt                              =
+        bx_trial_info(trial_looper).accuracy                        =
 
         Screen('DrawTexture', w, feedback_correct);
         Screen('flip', w);
@@ -389,16 +534,19 @@ for run_looper = run_num:total_runs
     end
 
     %% END OF RUN
-    % Show end of run message
-    %% ENTER CODE HERE
+    text = sprintf('Run %d/%d complete!', run_looper, total_runs);
+    DrawFormattedText(w, text, 'center', 'center');
+    Screen('Flip', w);
+    WaitSecs(2);
 
     % log session info
     sessionEnd = now;
     log_session_info(sub_num, run_looper, total_trials, sessionStart, sessionEnd, logFile);
 
-    % 
-    trialTable = struct2table(trials);
-
+    % save trial data to CSV
+    %trialTable = struct2table(trials);
+    %filename = sprintf('data/bx_data/%d_run%d.csv', subjectID, runNumber);
+    %writetable(trialTable, filename);
 
 end
 %% END EXPERIMENT
