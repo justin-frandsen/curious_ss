@@ -248,6 +248,9 @@ Screen('FillRect', fixation, col.fix, ...
 randomizor = load('trial_structure_files/randomizor.mat'); % load the pre-randomized data
 randomizor = randomizor.randomizor_matrix; % get the matrix from the struct
 
+all_targets = randomizor.(sprintf('subj%d', sub_num)).(sprintf('run%d', run_looper)); %method of getting into the struct
+
+
 target1 = Screen('OpenOffscreenWindow', scrID, col.bg, rect);
 Screen('DrawTexture', target1, sorted_nonsided_shapes_textures(all_targets(1, 1)));
 
@@ -390,13 +393,16 @@ for run_looper = run_num:total_runs
         if run_looper <= 4
             % look at the condition of the trial
             if trial_condition == 0
+                target_position_type = target_association;
                 target_position = possible_positions(target_association); %use this number to get into the target position matrix
             elseif trial_condition == 1
                 target_position_type = setdiff(types, target_association);
-                target_position = possible_positions(target_position_type(1)); %use this number to get into the target position matrix
+                target_position_type = target_position_type(1);
+                target_position = possible_positions(target_position_type); %use this number to get into the target position matrix
             elseif trial_condition == 2
                 target_position_type = setdiff(types, target_association);
-                target_position = possible_positions(target_position_type(2)); %use this number to get into the target position matrix
+                target_position_type = target_position_type(2);
+                target_position = possible_positions(target_position_type); %use this number to get into the target position matrix
             end
         elseif run_looper > 4
             target_position = possible_positions(critical_distractor_association);
@@ -416,7 +422,7 @@ for run_looper = run_num:total_runs
             Screen('DrawTexture', search, sorted_nonsided_shapes_textures(cd_texture_index), [], crit_dist_rect);
         end
     
-        remaining_locations = setdiff(positions, target_association);
+        remaining_locations = setdiff(positions, target_position_type);
         remaining_locations = setdiff(remaining_locations, crit_dist_position); % Remove the critical distractor position if it exists
 
         for location = 1:length(remaining_locations)
@@ -431,8 +437,6 @@ for run_looper = run_num:total_runs
 
         % Draw the target shape for testing phase
         Screen('DrawTexture', search, sorted_nonsided_shapes_textures(target_texture_index), [], target_position);
-
-
         
         % ScreenShot Search
         if strcmpi(record_pics, 'Y')
@@ -446,14 +450,14 @@ for run_looper = run_num:total_runs
         % Blank ISI
         Screen('DrawTexture', w, fixation);
         Screen('flip', w);
-        WaitSecs(.5); % 500 ms ISI
+
+        if strcmp(eyetracking, 'Y')
+            centralFixation(w, height, width, fixation, fix.reqDur, fix.Timeout, fix.Radius, t, el, eye, search)
+        end
         
         % Central Fixation
         Screen('DrawTexture', w, target1);
         WaitSecs(.5); 
-        if strcmp(eyetracking, 'Y')
-            centralFixation(w, height, width, fixation, fix.reqDur, fix.Timeout, fix.Radius, t, el, eye, search)
-        end
 
         Screen('DrawTexture', w, fixation);
         Screen('flip', w);
@@ -603,6 +607,9 @@ for run_looper = run_num:total_runs
         bx_trial_info(trial_looper).accuracy                        =
 
         Screen('DrawTexture', w, feedback_correct);
+        Screen('flip', w);
+        WaitSecs(.5); % 500 ms ITI
+
         Screen('flip', w);
         WaitSecs(.5); % 500 ms ITI
     end
