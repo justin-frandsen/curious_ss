@@ -12,7 +12,7 @@
 %-------------------------------------------------------------------------
 
 %% CONFIGURATION
-SAVE_OUTPUT = true;  % Set to true to save output .mat file
+SAVE_OUTPUT = false;  % Set to true to save output .mat file
 
 % Column constants for scene matrix
 SCENE_ID   = 1;
@@ -216,6 +216,7 @@ for sub_num = 1:total_subs
                                         ];
                 
                 possible_locations(4) = remaining_distractors(randi(length(remaining_distractors)));  % random from remaining
+                all_possible_locations(trial, :) = possible_locations;
             end
         end
 

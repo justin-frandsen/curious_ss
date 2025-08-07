@@ -247,7 +247,6 @@ Screen('FillRect', fixation, col.fix, ...
 % load randomizor for target shapes
 randomizor = load('trial_structure_files/randomizor.mat'); % load the pre-randomized data
 randomizor = randomizor.randomizor_matrix; % get the matrix from the struct
-all_targets = randomizor.(sprintf('subj%d', sub_num)).(sprintf('run%d', 1)).allTargets; %method of getting into the struct
 
 target1 = Screen('OpenOffscreenWindow', scrID, col.bg, rect);
 Screen('DrawTexture', target1, sorted_nonsided_shapes_textures(all_targets(1, 1)));
@@ -341,7 +340,7 @@ for run_looper = run_num:total_runs
     target_inds = this_subj_this_run.first_half_targets;
     target_associations = this_subj_this_run.target_associations;
     critical_distractor_inds = this_subj_this_run.first_half_critical_distractors;
-    critical_distractor_associations = this_subj_this_run.critical_distractor_associations;
+    critical_distractor_associations = this_subj_this_run.critical_distractors_associations;
     noncritical_distractors = this_subj_this_run.noncritical_distractors;
 
 
@@ -364,23 +363,76 @@ for run_looper = run_num:total_runs
         t_directions = this_subj_this_run.t_directions(trial_looper, :); % Get the target directions for this trial
 
         target_index1 = scene_randomizor(trial_looper, TARGET);
-        target_texture_index = first_half_targets(target_index1);
+        target_texture_index = target_inds(target_index1);
 
-        target_association = target_associations(target_index1);
+        target_association = target_associations(target_index1); %1 = wall 2 = counter, 3 = floor.
+
+        trial_condition = scene_randomizor(trial_looper, CONDITION);
 
         if run_looper <= 4
             critical_distractor_index1 = scene_randomizor(trial_looper, DISTRACTOR);
+            cd_texture_index = critical_distractor_inds(critical_distractor_index1);
             critical_distractor_association = critical_distractor_associations(critical_distractor_index1);
         end
 
         noncritical_distractors = this_subj_this_run.this_run_distractors(trial_looper, :);
         length_noncritical_distractors = length(noncritical_distractors);
         noncritical_distractors = noncritical_distractors(1:length_noncritical_distractors-1); % remove the last one which is just the run number
-
+        
         %% DRAW SCENE   
         search = Screen('OpenOffscreenWindow', scrID, col.bg, rect);
         % Draw the scene texture
         Screen('DrawTexture', search, scene_textures(scene_inds));
+
+        % Sort out position locations for all shapes
+        types = [1 2 3];
+        positions = [1 2 3 4];
+        if run_looper <= 4
+            % look at the condition of the trial
+            if trial_condition == 0
+                target_position = possible_positions(target_association); %use this number to get into the target position matrix
+            elseif trial_condition == 1
+                target_position_type = setdiff(types, target_association);
+                target_position = possible_positions(target_position_type(1)); %use this number to get into the target position matrix
+            elseif trial_condition == 2
+                target_position_type = setdiff(types, target_association);
+                target_position = possible_positions(target_position_type(2)); %use this number to get into the target position matrix
+            end
+        elseif run_looper > 4
+            target_position = possible_positions(critical_distractor_association);
+        end
+
+        target_rect = saved_positions{scene_inds, target_association}; % Get the target position rectangle
+
+        % Draw the target shape ADD IF TO DECIDE ON DIRECTION later
+        Screen('DrawTexture', search, sorted_nonsided_shapes_textures(target_texture_index), [], target_rect);
+
+        crit_dist_position = []; 
+        
+        if run_looper <= 4
+            crit_dist_position = possible_positions(4); % Get the critical distractor position
+            crit_dist_rect = saved_positions{scene_inds, crit_dist_position}; % Get the critical distractor position rectangle
+            % Draw the critical distractor shape ADD IF TO DECIDE ON DIRECTION later
+            Screen('DrawTexture', search, sorted_nonsided_shapes_textures(cd_texture_index), [], crit_dist_rect);
+        end
+    
+        remaining_locations = setdiff(positions, target_association);
+        remaining_locations = setdiff(remaining_locations, crit_dist_position); % Remove the critical distractor position if it exists
+
+        for location = 1:length(remaining_locations)
+            % Get the current position rectangle
+            this_position = remaining_locations(location);
+            current_position = possible_positions(this_position);
+            current_rect = saved_positions{scene_inds, current_position};
+            distractor_texture_index = noncritical_distractors(location);
+            % Draw the non-critical distractors ADD IF TO DECIDE ON DIRECTION later
+            Screen('DrawTexture', search, sorted_nonsided_shapes_textures(target_texture_index), [], current_rect);
+        end
+
+        % Draw the target shape for testing phase
+        Screen('DrawTexture', search, sorted_nonsided_shapes_textures(target_texture_index), [], target_position);
+
+
         
         % ScreenShot Search
         if strcmpi(record_pics, 'Y')
