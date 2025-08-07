@@ -25,23 +25,6 @@
 %   containing all matlab script variables, and a .edf file containing
 %   eyetracking data.
 %-----------------------------------------------------------------------
-%{
-trialData(trial).subjectID       = sub_num;
-trialData(trial).run             = run_looper;
-trialData(trial).sceneID         = scene_idx;
-trialData(trial).targetShape     = target_shape_idx;
-trialData(trial).distractorShape = distractor_shape_idxs;   % e.g., [1 3]
-trialData(trial).condition       = condition_label;          % e.g., 'valid' or 'invalid'
-trialData(trial).RT              = rt;                       % in milliseconds
-trialData(trial).accuracy        = isCorrect;                % 1 or 0
-trialData(trial).stimOnsetTime   = stimOnset;                % from GetSecs
-trialData(trial).responseTime    = responseTime;             % from GetSecs
-trialData(trial).responseKey     = responseKey;              % e.g., 'f'
-
-%}
-
-
-
 %% CLEAR VARIABLES
 clc;
 close all;
@@ -50,6 +33,14 @@ sca;
 rng('shuffle'); % Resets the random # generator
 %% ADD PATHS
 addpath(genpath('setup'));
+
+%% COLUMN NAMES FOR SCENE MATRIX
+SCENE_INDS   = 1;
+REP        = 2; % just used to create the randomizor matrix not used in the experiment
+RUN        = 3; % col contains the run number
+DISTRACTOR = 4;
+TARGET     = 5;
+CONDITION  = 6;
 
 %% PTB SETTINGS
 screens = Screen('Screens');
@@ -208,7 +199,7 @@ Screen('BlendFunction', w, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA'); %allows th
 %% LOAD STIMULI!!!
 % shapes images locations
 % shapes images locations
-nonsided_shapes          = 'stimuli/shapes/transparent_black';
+nonsided_shapes         = 'stimuli/shapes/transparent_black';
 shapes_left             = 'stimuli/shapes/black_left_T';
 shapes_right            = 'stimuli/shapes/black_right_T';
 
@@ -220,8 +211,11 @@ total_scenes = length(scene_file_paths);
 
 % Load in shape stimuli
 [sorted_nonsided_shapes_file_paths, sorted_nonsided_shapes_textures] = image_stimuli_import(nonsided_shapes, '*.png', w, true);
-[sorted_left_shapes_file_paths, sorted_left_shapes_textures] = image_stimuli_import(shapes_left, '*.png', w, true);
-[sorted_right_shapes_file_paths, sorted_right_shapes_textures] = image_stimuli_import(shapes_right, '*.png', w, true);
+[sorted_left_shapes_file_paths, sorted_left_shapes_textures]         = image_stimuli_import(shapes_left, '*.png', w, true);
+[sorted_right_shapes_file_paths, sorted_right_shapes_textures]       = image_stimuli_import(shapes_right, '*.png', w, true);
+
+% Load in the shape positions
+shape_positions = load('trial_structure_files/shape_positions.mat'); % Load the shape positions
 
 %% Background Screens
 
@@ -252,7 +246,8 @@ Screen('FillRect', fixation, col.fix, ...
 % draw targets textures
 % load randomizor for target shapes
 randomizor = load('trial_structure_files/randomizor.mat'); % load the pre-randomized data
-all_targets = randomizor.randomizor.(sprintf('subj%d', sub_num)).(sprintf('run%d', 1)).allTargets; %method of getting into the struct
+randomizor = randomizor.randomizor_matrix; % get the matrix from the struct
+all_targets = randomizor.(sprintf('subj%d', sub_num)).(sprintf('run%d', 1)).allTargets; %method of getting into the struct
 
 target1 = Screen('OpenOffscreenWindow', scrID, col.bg, rect);
 Screen('DrawTexture', target1, sorted_nonsided_shapes_textures(all_targets(1, 1)));
@@ -340,6 +335,16 @@ for run_looper = run_num:total_runs
     currentFixationRect = 0;
     previousFixationRect = 0;
 
+    this_subj_this_run = randomizor.(sprintf('subj%d', sub_num)).(sprintf('run%d', run_looper)); %method of getting into the struct
+
+    scene_randomizor = this_subj_this_run.scene_randomizor; % Get the scene randomizor for this subject and run
+    target_inds = this_subj_this_run.first_half_targets;
+    target_associations = this_subj_this_run.target_associations;
+    critical_distractor_inds = this_subj_this_run.first_half_critical_distractors;
+    critical_distractor_associations = this_subj_this_run.critical_distractor_associations;
+    noncritical_distractors = this_subj_this_run.noncritical_distractors;
+
+
     % This is where we will show instructions do this at the end!!!
     %instruct_curious_ss(sub_num, run_looper, w, scrID, rect, col); % show instructions will need to change this to a function later
 
@@ -349,16 +354,33 @@ for run_looper = run_num:total_runs
         EyelinkDoTrackerSetup(el);
     end
     
-    % Load randomization data
-    randomizor = load('trial_structure_files/randomizor.mat'); % load the pre-randomized data
-    this_subj_this_run = randomizor.randomizor.(sprintf('subj%d', sub_num)).(sprintf('run%d', run_looper)); %method of getting into the struct
 
     %% Loop through trials
-    for trial_looper = 1:1 %total_trials
+    for trial_looper = 1:total_trials
+        scene_inds = scene_randomizor(trial_looper, SCENE_INDS); % Get the scene index for this trial
+
+        possible_positions = this_subj_this_run.all_possible_locations(trial_looper, :); % Get the possible positions for this trial
+
+        t_directions = this_subj_this_run.t_directions(trial_looper, :); % Get the target directions for this trial
+
+        target_index1 = scene_randomizor(trial_looper, TARGET);
+        target_texture_index = first_half_targets(target_index1);
+
+        target_association = target_associations(target_index1);
+
+        if run_looper <= 4
+            critical_distractor_index1 = scene_randomizor(trial_looper, DISTRACTOR);
+            critical_distractor_association = critical_distractor_associations(critical_distractor_index1);
+        end
+
+        noncritical_distractors = this_subj_this_run.this_run_distractors(trial_looper, :);
+        length_noncritical_distractors = length(noncritical_distractors);
+        noncritical_distractors = noncritical_distractors(1:length_noncritical_distractors-1); % remove the last one which is just the run number
+
         %% DRAW SCENE   
         search = Screen('OpenOffscreenWindow', scrID, col.bg, rect);
         % Draw the scene texture
-        Screen('DrawTexture', search, scene_textures(this_subj_this_run.cBSceneOrder(trial_looper)));
+        Screen('DrawTexture', search, scene_textures(scene_inds));
         
         % ScreenShot Search
         if strcmpi(record_pics, 'Y')
