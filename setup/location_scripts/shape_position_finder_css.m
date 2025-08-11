@@ -17,7 +17,11 @@
 %-----------------------------------------------------------------------
 %% CLEAR VARIABLES
 clc;
-close all;
+try
+    close all
+catch
+    % ignore
+end
 clear all;
 sca;
 
@@ -44,19 +48,38 @@ col.fix = col.black; % fixation color
 screens = Screen('Screens'); % Get the list of screens
 scrID = max(screens); % Get the maximum screen ID (this should usually be the external monitor if using multiple screens)
 
-% Initilize PTB window
-[w, rect] = pfp_ptb_init; %call this function which contains all the screen initilization.
+% Open file
+% Current date and time in YYYYMMDD_HHMM format
+dateStr = datestr(now, 'yyyymmdd_HHMM');
+log_name_format = 'shape_position_finder_log_%s.txt';
+logFileName = sprintf(log_name_format, dateStr);
+% Build the full file path
+logFilePath = fullfile('..', '..', 'data', 'log_files', logFileName);
+
+fid = fopen(logFilePath, 'w');
+if fid == -1
+    warning('Failed to write session log to %s', logFilePath);
+    return;
+end
+
+fprintf(fid, '--- Session Log ---\n');
+fprintf(fid, 'Log file created: %s\n', datestr(now, 'yyyy-mm-dd HH:MM:SS'));
+fprintf(fid, 'Log file path: %s\n\n', logFilePath);
+fclose(fid);
+
+% Initialize PTB window
+[w, rect] = pfp_ptb_init; %call this function which contains all the screen initialization.
 [width, height] = Screen('WindowSize', scrID); %get the width and height of the screen
 Screen('BlendFunction', w, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA'); %allows the .png files to be transparent
 
 %load all scenes images in the stimuli/scenes/ directory.
-[~, scenes_texture_matrix] = image_stimuli_import(scene_folder, '', w);
+[scenes_file_paths, scenes_texture_matrix] = image_stimuli_import(scene_folder, '', w);
 
 %load in shape stimuli from the stimuli/shapes/transparent_black directory.
 [~, stimuli_texture_matrix] = image_stimuli_import(shapes_folder, '*.png', w);
 
 % Set initial position of the texture
-texture_size = [0, 0, 106, 106]; % In this version I am maintaining the same size as the previos experiment at 106 pixels tall and wide
+texture_size = [0, 0, 106, 106]; % In this version I am maintaining the same size as the previous experiment at 106 pixels tall and wide
 number_of_positions = 6; % Number of positions to save for each scene
 
 saved_positions = cell(length(scenes_texture_matrix), number_of_positions); % Initialize cell array to store positions
@@ -69,6 +92,7 @@ for scene_num = 1:length(scenes_texture_matrix)
     scene = Screen('OpenOffscreenWindow', scrID, col.bg, rect);
     % Draw the scene texture
     Screen('DrawTexture', scene, scenes_texture_matrix(scene_num), [], rect);
+    bad_scene = false; % Initialize bad scene flag
 
     for position_num = 1:number_of_positions
         WaitSecs(0.5);
@@ -82,8 +106,7 @@ for scene_num = 1:length(scenes_texture_matrix)
             if key_is_down && key_code(KbName('ESCAPE'))
                 pfp_ptb_cleanup
             elseif key_is_down && key_code(KbName('M'))
-                position = NaN;
-                running = false;            
+                bad_scene = true; % Set bad scene flag
             end
 
             % Update mouse position
@@ -103,7 +126,7 @@ for scene_num = 1:length(scenes_texture_matrix)
             for prev_position = 1:position_num-1 %loop through all previous positions
                 if ~isempty(saved_positions{scene_num, prev_position})
                     % Draw previous positions
-                    Screen('DrawTexture', w, this_shape, [], saved_positions{scene_num, prev_position}); % draw the current shape. This saves resource usage relative to drawing all diff ones that arent already loaded in.
+                    Screen('DrawTexture', w, this_shape, [], saved_positions{scene_num, prev_position}); % draw the current shape. This saves resource usage relative to drawing all diff ones that aren't already loaded in.
                 end
             end
 
@@ -114,8 +137,35 @@ for scene_num = 1:length(scenes_texture_matrix)
         end
         saved_positions{scene_num, position_num} = position; % Save the position of the shape
     end
+    if bad_scene
+        % Open file in append mode
+        fid = fopen(logFilePath, 'a');
+        if fid == -1
+            warning('Failed to write session log to %s', logFilePath);
+            return;
+        end
+
+        fprintf(fid, 'Scene %s index %d is a bad scene and unusable.\n', char(scenes_file_paths(scene_num)), scene_num);
+        fclose(fid);
+
+        fprintf('[LOGGED] Scene: %s\n', char(scenes_file_paths(scene_num)));
+    end
 end
 
-save ../../trial_structure_files/shape_positions.mat saved_positions
+%% SAVE POSITIONS
+% Define directory and file paths
+dir_path = fullfile('..', '..', 'trial_structure_files');
+file_path = fullfile(dir_path, 'shape_positions.mat');
+
+% Ensure directory exists
+if ~exist(dir_path, 'dir')
+    [status, msg] = mkdir(dir_path);
+    if ~status
+        error('Failed to create directory: %s', msg);
+    end
+end
+
+% Save file
+save(file_path, 'saved_positions');
 
 pfp_ptb_cleanup;

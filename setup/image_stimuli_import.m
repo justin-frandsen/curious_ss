@@ -37,11 +37,11 @@ filePathMatrix = string(zeros(length(myFiles), 1)); %matrix that contains all im
 textureMatrix = zeros(length(myFiles), 1); %matrix that contains all the textures of the image files
 
 for k = 1:length(myFiles)
-    disp(k);
-
     baseFileName = myFiles(k).name;
     fullFilePath = string(fullfile(fileDirectory, baseFileName));
     
+    fprintf('Loading: %s, Number: %d/%d\n', baseFileName, k, length(myFiles));
+
     %this if differs for .png files because png files have the ability to
     %be transparent, so they need the alpha variable.
     
