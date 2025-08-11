@@ -60,13 +60,14 @@ refresh_rate = 60; % Hz of monitor
 eyetracking = 'N'; % Y or N
 dummymode = 1; % 0 for real eyetracking, 1 for dummy mode (no eyetracking)
 
+sub_num = 100;
+run_num = 1;
 
 %% GET SUBJECT NUMBER AND RUN NUMBER AND CHECK IF THEY ARE VALID/EXIST
 % Check if sub_num is defined, if not prompt user for input
 if ~exist('sub_num', 'var')
     while true
-        fprintf('Enter subject number: ');
-        sub_num = input('');
+        sub_num = input('Enter subject number: ');
         if ~isempty(sub_num) && isnumeric(sub_num) && sub_num > 0
             break;
         else
@@ -101,7 +102,7 @@ end
 
 %% Check if experimenter wants to proceed
 fprintf('Proceed with subject number: %d and run number: %d? (Y/N)\n', sub_num, run_num);
-proceed_response = input('', 's');
+proceed_response = 'y'; %input('', 's');
 if ~strcmpi(proceed_response, 'Y')
     error('Experiment aborted by user.');
 end
@@ -380,7 +381,7 @@ for run_looper = run_num:total_runs
         %% DRAW SCENE   
         search = Screen('OpenOffscreenWindow', scrID, col.bg, rect);
         % Draw the scene texture
-        Screen('DrawTexture', search, scene_textures(scene_inds));
+        Screen('DrawTexture', search, scene_textures(scene_inds), [], rect);
 
         % Sort out position locations for all shapes
         types = [1 2 3];
@@ -418,7 +419,7 @@ for run_looper = run_num:total_runs
         end
     
         remaining_locations = setdiff(positions, target_position_type);
-        remaining_locations = setdiff(remaining_locations, crit_dist_position); % Remove the critical distractor position if it exists
+        remaining_locations = setdiff(remaining_locations, 4); % Remove the critical distractor position if it exists
 
         for location = 1:length(remaining_locations)
             % Get the current position rectangle
@@ -430,14 +431,15 @@ for run_looper = run_num:total_runs
             Screen('DrawTexture', search, sorted_nonsided_shapes_textures(distractor_texture_index), [], current_rect);
         end
 
-        % Only draw the target shape once, using target_rect
-        % Screen('DrawTexture', search, sorted_nonsided_shapes_textures(target_texture_index), [], target_position); % <-- Removed to avoid double drawing
-        
         % ScreenShot Search
         if strcmpi(record_pics, 'Y')
             % Search
             screenshot(search, 'Search' , trial_looper)
         end
+
+        %% DRAW CUE DISPLAY
+        cue_display = Screen('OpenOffscreenWindow', scrID, col.bg, rect);
+        Screen('DrawTexture', cue_display, sorted_nonsided_shapes_textures(target_texture_index));
 
         HideCursor(scrID);         % Hide mouse cursor before the next trial
         SetMouse(10, 10, scrID);   % Move the mouse to the corner -- in case some jerk has unhidden it
@@ -450,13 +452,14 @@ for run_looper = run_num:total_runs
             centralFixation(w, height, width, fixation, fix.reqDur, fix.Timeout, fix.Radius, t, el, eye, search)
         end
         
-        % Central Fixation
-        Screen('DrawTexture', w, target1);
-        WaitSecs(.5); 
+        % CUE DISPLAY
+        
+        Screen('DrawTexture', w, cue_display);
+        WaitSecs(1); % 1 second cue
 
         Screen('DrawTexture', w, fixation);
         Screen('flip', w);
-        WaitSecs(.5); % 500 ms ISI
+        WaitSecs(1); % 1 second central fixation
 
         %% SEARCH DISPLAY
         Screen('DrawTexture', w, search);
@@ -524,7 +527,7 @@ for run_looper = run_num:total_runs
             %-----------------------------------------------------
             isInInterestArea = false;
             for interestArea = 1:4
-                if IsInRect(mx, my, shapePositions.savedPositions{sceneInds, interestArea})
+                if IsInRect(mx, my, saved_positions{scene_inds, interestArea})
                     isInInterestArea = true;
                     currentFixationRect = interestArea;
                     break;
