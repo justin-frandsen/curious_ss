@@ -35,7 +35,7 @@ rng('shuffle'); % Resets the random # generator
 addpath(genpath('setup'));
 
 %% COLUMN NAMES FOR SCENE MATRIX
-SCENE_INDS   = 1;
+SCENE_INDS = 1;
 REP        = 2; % just used to create the randomizor matrix not used in the experiment
 RUN        = 3; % col contains the run number
 DISTRACTOR = 4;
@@ -50,6 +50,8 @@ scrID = max(screens);
 %we initialize this because sometimes if its not set it checks vars that don't exist and throws an error
 mx = 1; 
 my = 1;
+fixationTimeThreshold = 50; % Minimum fixation duration in ms to log
+
 
 % RECORD PICS/TRACK EYES?
 record_pics = 'N';  % change to 'Y' to record pictures of stimuli
@@ -74,7 +76,7 @@ if ~exist('sub_num', 'var')
 else
     % If sub_num is already defined, ensure it is a positive integer
     if ~isnumeric(sub_num) || any(sub_num <= 0)
-        error('Invalid run number. Please clear the workspace.');
+        error('Invalid subject number. Please clear the workspace.');
     end
 end
 
@@ -97,35 +99,51 @@ else
 end
 
 
-
 %% Check if experimenter wants to proceed
 fprintf('Proceed with subject number: %d and run number: %d? (Y/N)\n', sub_num, run_num);
 proceed_response = input('', 's');
 if ~strcmpi(proceed_response, 'Y')
     error('Experiment aborted by user.');
 end
+
 %% OUTPUT VARIABLES
 % Output folders and file formats for behavioral data, eye-tracking data
 
 % Bx output folder and file format
-bx_output_folder_name = 'data/bx_data/';
+data_folder = 'data';
+bx_output_folder_name = fullfile(data_folder, 'bx_data');
 bx_file_format = 'bx_Subj%.3dRun%.2d.csv';
 
 % Preprocessed eye data output folder and file format
-eye_output_folder_name = 'data/eye_data/';
+eye_output_folder_name = fullfile(data_folder, 'eye_data');
 eye_file_format = 'fixation_data_subj_%.3d_run_%.3d.csv';
 
 % EDF output folder and file format
-edf_output_folder_name = 'data/edf_data/';
+edf_output_folder_name = fullfile(data_folder, 'edf_data');
 edf_file_format = 'S%.3dR%.1d.edf';
 
 % scene images locations
 scene_folder            = 'stimuli/scenes/';
 
-% shapes images locations
-nonsided_shapes          = 'stimuli/shapes/transparent_black';
-shapes_left             = 'stimuli/shapes/black_left_T';
-shapes_right            = 'stimuli/shapes/black_right_T';
+%% MAKE SURE data directory and its subdirectories exist
+subdirs = {'bx_data', 'edf_data', 'eye_data', 'log_files'};
+
+if ~exist(data_folder, 'dir')
+    [status, msg] = mkdir(data_folder);
+    if ~status
+        error('Failed to create directory: %s', msg);
+    end
+end
+
+for i = 1:length(subdirs)
+    subdir_path = fullfile(data_folder, subdirs{i});
+    if ~exist(subdir_path, 'dir')
+        [status, msg] = mkdir(subdir_path);
+        if ~status
+            error('Failed to create directory: %s', msg);
+        end
+    end
+end
 
 %% TEST IF OUTPUT FILES EXIST
 % Test if bx output file already exists
@@ -182,6 +200,8 @@ key.yes = '1!'; % top left button on button box
 key.no = '2@'; % top right button on button box
 key.esc = '0)'; % 39
 
+validKeys = {key.left, key.right};
+
 % colors
 col.white = [255 255 255]; 
 col.black = [0 0 0];
@@ -216,11 +236,12 @@ total_scenes = length(scene_file_paths);
 
 % Load in the shape positions
 shape_positions = load('trial_structure_files/shape_positions.mat'); % Load the shape positions
+saved_positions = shape_positions.saved_positions; % Assign saved_positions for later use
 
 %% Background Screens
 
 % Screens
-Screen('textSize', w, my_font_size);
+Screen('TextSize', w, my_font_size);
 Screen('TextFont', w, my_font);
 
 bufimg =  Screen('OpenOffscreenWindow',scrID, col.bg, rect);
@@ -248,37 +269,10 @@ Screen('FillRect', fixation, col.fix, ...
 randomizor = load('trial_structure_files/randomizor.mat'); % load the pre-randomized data
 randomizor = randomizor.randomizor_matrix; % get the matrix from the struct
 
-all_targets = randomizor.(sprintf('subj%d', sub_num)).(sprintf('run%d', run_looper)); %method of getting into the struct
-
-
-target1 = Screen('OpenOffscreenWindow', scrID, col.bg, rect);
-Screen('DrawTexture', target1, sorted_nonsided_shapes_textures(all_targets(1, 1)));
-
-target2 = Screen('OpenOffscreenWindow', scrID, col.bg, rect);
-Screen('DrawTexture', target2, sorted_nonsided_shapes_textures(all_targets(1, 2)));
-
-target3 = Screen('OpenOffscreenWindow', scrID, col.bg, rect);
-Screen('DrawTexture', target3, sorted_nonsided_shapes_textures(all_targets(1, 3)));
-
-target4 = Screen('OpenOffscreenWindow', scrID, col.bg, rect);
-Screen('DrawTexture', target4, sorted_nonsided_shapes_textures(all_targets(1, 4)));
-
-% Draw feedback messages
-feedback_slow = Screen('OpenOffscreenWindow', scrID, col.bg, rect);
-Screen('textSize', feedback_slow, my_font_size);
-Screen('TextFont', feedback_slow, my_font);
-DrawFormattedText(feedback_slow, 'Too slow!', 'center', 'center', col.fg);
-
-
-feedback_correct = Screen('OpenOffscreenWindow', scrID, col.bg, rect);
-Screen('textSize', feedback_correct, my_font_size);
-Screen('TextFont', feedback_correct, my_font);
-DrawFormattedText(feedback_correct, 'Correct!', 'center', 'center', col.fg);
-
-feedback_incorrect = Screen('OpenOffscreenWindow', scrID, col.bg, rect);
-Screen('textSize', feedback_incorrect, my_font_size);
-Screen('TextFont', feedback_incorrect, my_font);
-DrawFormattedText(feedback_incorrect, 'Incorrect!', 'center', 'center', col.fg);
+% Draw feedback messages: create three feedback screens for slow, correct, and incorrect responses
+feedback_slow      = create_feedback_screen(scrID, rect, col.bg, my_font, my_font_size, 'Too slow!', col.fg);
+feedback_correct   = create_feedback_screen(scrID, rect, col.bg, my_font, my_font_size, 'Correct!', col.fg);
+feedback_incorrect = create_feedback_screen(scrID, rect, col.bg, my_font, my_font_size, 'Incorrect!', col.fg);
 
 %% INITIALIZE EYETRACKER
 if eyetracking == 'Y'
@@ -337,6 +331,7 @@ for run_looper = run_num:total_runs
     currentFixationRect = 0;
     previousFixationRect = 0;
 
+    %% LOAD DATA FOR THIS SUBJECT AND RUN
     this_subj_this_run = randomizor.(sprintf('subj%d', sub_num)).(sprintf('run%d', run_looper)); %method of getting into the struct
 
     scene_randomizor = this_subj_this_run.scene_randomizor; % Get the scene randomizor for this subject and run
@@ -432,11 +427,11 @@ for run_looper = run_num:total_runs
             current_rect = saved_positions{scene_inds, current_position};
             distractor_texture_index = noncritical_distractors(location);
             % Draw the non-critical distractors ADD IF TO DECIDE ON DIRECTION later
-            Screen('DrawTexture', search, sorted_nonsided_shapes_textures(target_texture_index), [], current_rect);
+            Screen('DrawTexture', search, sorted_nonsided_shapes_textures(distractor_texture_index), [], current_rect);
         end
 
-        % Draw the target shape for testing phase
-        Screen('DrawTexture', search, sorted_nonsided_shapes_textures(target_texture_index), [], target_position);
+        % Only draw the target shape once, using target_rect
+        % Screen('DrawTexture', search, sorted_nonsided_shapes_textures(target_texture_index), [], target_position); % <-- Removed to avoid double drawing
         
         % ScreenShot Search
         if strcmpi(record_pics, 'Y')
@@ -475,6 +470,7 @@ for run_looper = run_num:total_runs
         trialActive = true;  % Flag to keep the trial going
         responseMade = false;
 
+        startTime = GetSecs(); % Initialize startTime for each trial
         while trialActive && (GetSecs() - startTime <= 15)
             %-----------------------------------------------------
             % CHECK FOR RESPONSE KEY PRESS
@@ -548,19 +544,18 @@ for run_looper = run_num:total_runs
                     fixationDuration = (fixationEndTime - fixationStartTime) * 1000;
                     if fixationDuration > fixationTimeThreshold
                         fixationCounter = fixationCounter + 1;
-                        fixationData(fixationCounter) = struct( ...
+                        fixationStruct(fixationCounter) = struct( ...
                             'sub_num', sub_num, ...
                             'run_num', run_looper, ...
-                            'trial_num', trialNum, ...
+                            'trial_num', trial_looper, ...
                             'fixation_onset', fixationStartTime - stimOnsetTime, ...
                             'fixation_offset', fixationEndTime - stimOnsetTime, ...
                             'fixation_num', fixationCounter, ...
                             'duration_ms', fixationDuration, ...
                             'fixated_rect', previousFixationRect, ...
-                            'extra_target', thisTrialExtraTarget, ...
-                            'incorrect_target_location', thisTrialIncorrectTargetLocation, ...
-                            'target_shape_idx', targetInds, ...
-                            'target_position_idx', targetPositionInds ...
+                            'incorrect_target_location', trial_condition, ...
+                            'target_shape_idx', target_texture_index, ...
+                            'target_position_idx', target_position ...
                         );
                     end
                 end
@@ -575,36 +570,48 @@ for run_looper = run_num:total_runs
             % Logging last fixation data
             if fixationDuration > fixationTimeThreshold
                 fixationCounter = fixationCounter + 1;
-                fixationData(fixationCounter) = struct( ...
+                fixationStruct(fixationCounter) = struct( ...
                     'sub_num', sub_num, ...
                     'run_num', run_looper, ...
-                    'trial_num', trialNum, ...
+                    'trial_num', trial_looper, ...
+                    'fixation_onset', fixationStartTime - stimOnsetTime, ...
+                    'fixation_offset', fixationEndTime - stimOnsetTime, ...
                     'fixation_num', fixationCounter, ...
                     'duration_ms', fixationDuration, ...
                     'fixated_rect', previousFixationRect, ...
-                    'extra_target', thisTrialExtraTarget, ...
-                    'incorrect_target_location', thisTrialIncorrectTargetLocation, ...
-                    'target_shape_idx', targetInds, ...
-                    'target_position_idx', targetPositionInds ...
-                );     
+                    'incorrect_target_location', trial_condition, ...
+                    'target_shape_idx', target_texture_index, ...
+                    'target_position_idx', target_position ...
+                );   
             end
         end
 
         %% LOG OUTPUT VARIABLES
-        bx_trial_info(trial_looper).trial_onset                     =
-        bx_trial_info(trial_looper).trial_offset                    =
-        bx_trial_info(trial_looper).response_clock_time             =
-        bx_trial_info(trial_looper).scene_idx                       =
-        bx_trial_info(trial_looper).target_shape_idx                =
-        bx_trial_info(trial_looper).target_shape_association        =
-        bx_trial_info(trial_looper).critical_distractor_idx         =
-        bx_trial_info(trial_looper).critical_distractor_association =
-        bx_trial_info(trial_looper).noncritical_distractor_idx      =
-        bx_trial_info(trial_looper).condition                       =
-        bx_trial_info(trial_looper).t_direction                     =
-        bx_trial_info(trial_looper).response_key                    =
-        bx_trial_info(trial_looper).rt                              =
-        bx_trial_info(trial_looper).accuracy                        =
+        bx_trial_info(trial_looper).trial_onset                     = stimOnsetTime;
+        bx_trial_info(trial_looper).trial_offset                    = GetSecs();
+        bx_trial_info(trial_looper).response_clock_time             = secs;
+        bx_trial_info(trial_looper).scene_idx                       = scene_inds;
+        bx_trial_info(trial_looper).target_shape_idx                = target_texture_index;
+        bx_trial_info(trial_looper).target_shape_association        = target_association;
+        if run_looper <= 4
+            bx_trial_info(trial_looper).critical_distractor_idx         = cd_texture_index;
+            bx_trial_info(trial_looper).critical_distractor_association = critical_distractor_association;
+        else
+            bx_trial_info(trial_looper).critical_distractor_idx         = NaN;
+            bx_trial_info(trial_looper).critical_distractor_association = NaN;
+        end
+        bx_trial_info(trial_looper).noncritical_distractor_idx      = noncritical_distractors;
+        bx_trial_info(trial_looper).condition                       = trial_condition;
+        bx_trial_info(trial_looper).t_direction                     = t_directions;
+        if responseMade
+            bx_trial_info(trial_looper).response_key                = response;
+            bx_trial_info(trial_looper).rt                          = RT;
+            bx_trial_info(trial_looper).accuracy                    = 1; % You may want to set this based on correctness
+        else
+            bx_trial_info(trial_looper).response_key                = '';
+            bx_trial_info(trial_looper).rt                          = NaN;
+            bx_trial_info(trial_looper).accuracy                    = 0;
+        end
 
         Screen('DrawTexture', w, feedback_correct);
         Screen('flip', w);
@@ -676,3 +683,11 @@ pfp_ptb_cleanup; % cleanup PTB
 close all; % close all windows
 clear all; % clear all variables
 sca; % close PTB
+
+% Helper function for feedback screens
+function feedback_screen = create_feedback_screen(scrID, rect, bg_color, font, font_size, message, fg_color)
+    feedback_screen = Screen('OpenOffscreenWindow', scrID, bg_color, rect);
+    Screen('TextSize', feedback_screen, font_size);
+    Screen('TextFont', feedback_screen, font);
+    DrawFormattedText(feedback_screen, message, 'center', 'center', fg_color);
+end
