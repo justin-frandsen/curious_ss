@@ -387,9 +387,9 @@ for run_looper = run_num:total_runs
         % Enable blending for transparency inside this offscreen window
         Screen('BlendFunction', search, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-        % Sort out position locations for all shapes
-        types = [1 2 3];
-        positions = [1 2 3 4];
+        types     = [1 2 3];      % semantic categories: wall/counter/floor
+        positions = [1 2 3 4];    % physical rect indices
+
         if run_looper <= 4
             % look at the condition of the trial
             if trial_condition == 0
@@ -408,7 +408,28 @@ for run_looper = run_num:total_runs
             target_position = possible_positions(critical_distractor_association);
         end
 
-        target_rect = saved_positions{scene_inds, target_association}; % Get the target position rectangle
+        % ---- choose the target TYPE for this trial
+        if run_looper <= 4
+            % training: trial_condition chooses whether target uses its associated
+            % location or one of the other two
+            switch trial_condition
+                case 0
+                    target_type = target_association;  % use its associated type
+                case 1
+                    tmp = setdiff(types, target_association);
+                    target_type = tmp(1);
+                case 2
+                    tmp = setdiff(types, target_association);
+                    target_type = tmp(2);
+                otherwise
+                    error('Unexpected trial_condition value.');
+            end
+        else
+            % testing: target goes to the formerly critical association (if that’s your design)
+            target_type = critical_distractor_association;
+        end
+
+        target_rect = saved_positions{scene_inds, target_position_type}; % Get the target position rectangle
 
         % Draw the target shape ADD IF TO DECIDE ON DIRECTION later
         Screen('DrawTexture', search, sorted_nonsided_shapes_textures(target_texture_index), [], target_rect);
@@ -453,7 +474,6 @@ for run_looper = run_num:total_runs
 
         % Later: draw the offscreen window onto your main window (w)
         Screen('DrawTexture', w, cue_display);
-
 
         HideCursor(scrID);         % Hide mouse cursor before the next trial
         SetMouse(10, 10, scrID);   % Move the mouse to the corner -- in case some jerk has unhidden it
