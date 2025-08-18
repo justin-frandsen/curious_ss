@@ -215,6 +215,7 @@ col.fix = col.black; % fixation color
 % Initilize PTB window
 [w, rect] = pfp_ptb_init; %call this function which contains all the screen initilization.
 [width, height] = Screen('WindowSize', scrID); %get the width and height of the screen
+% Enable alpha blending for transparency
 Screen('BlendFunction', w, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA'); %allows the .png files to be transparent
 
 %% LOAD STIMULI!!!
@@ -379,9 +380,12 @@ for run_looper = run_num:total_runs
         noncritical_distractors = noncritical_distractors(1:length_noncritical_distractors-1); % remove the last one which is just the run number
         
         %% DRAW SCENE   
-        search = Screen('OpenOffscreenWindow', scrID, col.bg, rect);
+        search = Screen('OpenOffscreenWindow', scrID, col.bg, rect, 32);
         % Draw the scene texture
         Screen('DrawTexture', search, scene_textures(scene_inds), [], rect);
+
+        % Enable blending for transparency inside this offscreen window
+        Screen('BlendFunction', search, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         % Sort out position locations for all shapes
         types = [1 2 3];
@@ -438,8 +442,18 @@ for run_looper = run_num:total_runs
         end
 
         %% DRAW CUE DISPLAY
-        cue_display = Screen('OpenOffscreenWindow', scrID, col.bg, rect);
+        % Open an offscreen window with alpha channel (32-bit RGBA)
+        cue_display = Screen('OpenOffscreenWindow', scrID, col.bg, rect, 32);
+
+        % Enable blending for transparency inside this offscreen window
+        Screen('BlendFunction', cue_display, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        % Draw your texture into the offscreen window
         Screen('DrawTexture', cue_display, sorted_nonsided_shapes_textures(target_texture_index));
+
+        % Later: draw the offscreen window onto your main window (w)
+        Screen('DrawTexture', w, cue_display);
+
 
         HideCursor(scrID);         % Hide mouse cursor before the next trial
         SetMouse(10, 10, scrID);   % Move the mouse to the corner -- in case some jerk has unhidden it
@@ -455,6 +469,7 @@ for run_looper = run_num:total_runs
         % CUE DISPLAY
         
         Screen('DrawTexture', w, cue_display);
+        Screen('flip', w);
         WaitSecs(1); % 1 second cue
 
         Screen('DrawTexture', w, fixation);
