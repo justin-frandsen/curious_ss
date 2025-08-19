@@ -22,6 +22,8 @@ if nargin < 4
     sortLogical = false;
 end
 
+barLength = 30; % number of characters in the progress bar
+
 if isempty(fileType)
     % The inputVariable is empty.
     myFiles = dir(fullfile(fileDirectory));
@@ -40,7 +42,7 @@ for k = 1:length(myFiles)
     baseFileName = myFiles(k).name;
     fullFilePath = string(fullfile(fileDirectory, baseFileName));
     
-    fprintf('Loading: %s, Number: %d/%d\n', baseFileName, k, length(myFiles));
+    %fprintf('Loading: %s, Number: %d/%d\n', baseFileName, k, length(myFiles));
 
     %this if differs for .png files because png files have the ability to
     %be transparent, so they need the alpha variable.
@@ -55,7 +57,22 @@ for k = 1:length(myFiles)
     
     textureMatrix(k) = Screen('MakeTexture', PTBwindow, loadedImg);
     filePathMatrix(k, 1) = fullFilePath;
+
+    % calculate percent complete
+    percentComplete = k / length(myFiles);
+    numEquals = round(percentComplete * barLength);
+    
+    % build progress bar string
+    progressBar = ['[' repmat('=', 1, numEquals) ...
+                    repmat(' ', 1, barLength - numEquals) ']'];
+    
+    % print progress (overwrite same line using \r)
+    fprintf('\rLoading %d/%d %s %.1f%%', k, length(myFiles), progressBar, percentComplete * 100);
+    drawnow;  % forces MATLAB to update the terminal output
 end
+
+fprintf('\n');
+
 
 %this will sort based on numbers within the name of a given file.
 if sortLogical == true

@@ -30,7 +30,7 @@ if isempty(button) || strcmp(button,'Quit')
 end
 
 % Hide the mouse cursor:
-HideCursor;
+% HideCursor;
 
 % Returns as default the mean gray value of screen:
 grayval=GrayIndex(screenNumber,grayval/255); 

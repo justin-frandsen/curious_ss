@@ -62,6 +62,7 @@ dummymode = 1; % 0 for real eyetracking, 1 for dummy mode (no eyetracking)
 
 sub_num = 100;
 run_num = 1;
+border_line_width = 30;
 
 %% GET SUBJECT NUMBER AND RUN NUMBER AND CHECK IF THEY ARE VALID/EXIST
 % Check if sub_num is defined, if not prompt user for input
@@ -195,8 +196,8 @@ beeper.duration = 0.3; % 300 ms default
 % Response Keys
 KbName('UnifyKeyNames');
 
-key.left = '3#'; % 32
-key.right = '4$';% 33
+key.left = 'z'; %'3#'; % 32
+key.right = 'x'; %'4$';% 33
 key.yes = '1!'; % top left button on button box
 key.no = '2@'; % top right button on button box
 key.esc = '0)'; % 39
@@ -207,6 +208,8 @@ validKeys = {key.left, key.right};
 col.white = [255 255 255]; 
 col.black = [0 0 0];
 col.gray = [117 117 117];
+col.red = [255 0 0];
+col.green = [0 255 0];
 
 col.bg = col.gray; % background color
 col.fg = col.white; % foreground color
@@ -271,11 +274,6 @@ Screen('FillRect', fixation, col.fix, ...
 randomizor = load('trial_structure_files/randomizor.mat'); % load the pre-randomized data
 randomizor = randomizor.randomizor_matrix; % get the matrix from the struct
 
-% Draw feedback messages: create three feedback screens for slow, correct, and incorrect responses
-feedback_slow      = create_feedback_screen(scrID, rect, col.bg, my_font, my_font_size, 'Too slow!', col.fg);
-feedback_correct   = create_feedback_screen(scrID, rect, col.bg, my_font, my_font_size, 'Correct!', col.fg);
-feedback_incorrect = create_feedback_screen(scrID, rect, col.bg, my_font, my_font_size, 'Incorrect!', col.fg);
-
 %% INITIALIZE EYETRACKER
 if eyetracking == 'Y'
     % Initialize Eyelink
@@ -328,8 +326,23 @@ for run_looper = run_num:total_runs
     end
 
     %% INITIALIZE FIXATION STRUCT
-    fixationStruct = struct([]);
-    fixationCounter = 0; % Counter for fixation data
+    fixationTemplate = struct( ...
+        'sub_num', [], ...
+        'run_num', [], ...
+        'trial_num', [], ...
+        'fixation_onset', [], ...
+        'fixation_offset', [], ...
+        'fixation_num', [], ...
+        'duration_ms', [], ...
+        'fixated_rect', [], ...
+        'incorrect_target_location', [], ...
+        'target_shape_idx', [], ...
+        'target_position_idx', [] ...
+    );
+
+    fixationStruct = repmat(fixationTemplate, 0, 1); % empty array with correct fields
+    fixationCounter = 0;
+
     currentFixationRect = 0;
     previousFixationRect = 0;
 
@@ -356,6 +369,12 @@ for run_looper = run_num:total_runs
 
     %% Loop through trials
     for trial_looper = 1:total_trials
+        response = -1;
+
+        fprintf("Trial %d/%d for subject %d, run %d, %.1f%% complete\n", ...
+            trial_looper, total_trials, sub_num, run_looper, ...
+            trial_looper/total_trials*100);
+        
         scene_inds = scene_randomizor(trial_looper, SCENE_INDS); % Get the scene index for this trial
 
         possible_positions = this_subj_this_run.all_possible_locations(trial_looper, :); % Get the possible positions for this trial
@@ -390,24 +409,6 @@ for run_looper = run_num:total_runs
         types     = [1 2 3];      % semantic categories: wall/counter/floor
         positions = [1 2 3 4];    % physical rect indices
 
-        if run_looper <= 4
-            % look at the condition of the trial
-            if trial_condition == 0
-                target_position_type = target_association;
-                target_position = possible_positions(target_association); %use this number to get into the target position matrix
-            elseif trial_condition == 1
-                target_position_type = setdiff(types, target_association);
-                target_position_type = target_position_type(1);
-                target_position = possible_positions(target_position_type); %use this number to get into the target position matrix
-            elseif trial_condition == 2
-                target_position_type = setdiff(types, target_association);
-                target_position_type = target_position_type(2);
-                target_position = possible_positions(target_position_type); %use this number to get into the target position matrix
-            end
-        elseif run_looper > 4
-            target_position = possible_positions(critical_distractor_association);
-        end
-
         % ---- choose the target TYPE for this trial
         if run_looper <= 4
             % training: trial_condition chooses whether target uses its associated
@@ -429,37 +430,48 @@ for run_looper = run_num:total_runs
             target_type = critical_distractor_association;
         end
 
-        target_rect = saved_positions{scene_inds, target_position_type}; % Get the target position rectangle
+        % ---- map TYPE → POSITION and draw TARGET
+        target_position = possible_positions(target_type);                 % e.g., 1..4
+        target_rect     = saved_positions{scene_inds, target_position};    % use POSITION!
 
-        % Draw the target shape ADD IF TO DECIDE ON DIRECTION later
-        Screen('DrawTexture', search, sorted_nonsided_shapes_textures(target_texture_index), [], target_rect);
+        if t_directions(1) == 0
+            % left target
+            Screen('DrawTexture', search, sorted_left_shapes_textures(target_texture_index), [], target_rect);
+        elseif t_directions(1) == 1
+            % right target  
+            Screen('DrawTexture', search, sorted_right_shapes_textures(target_texture_index), [], target_rect);
+        end
 
         crit_dist_position = []; 
         
+        % ---- draw CRITICAL DISTRACTOR only in training
         if run_looper <= 4
-            crit_dist_position = possible_positions(4); % Get the critical distractor position
-            crit_dist_rect = saved_positions{scene_inds, crit_dist_position}; % Get the critical distractor position rectangle
-            % Draw the critical distractor shape ADD IF TO DECIDE ON DIRECTION later
-            Screen('DrawTexture', search, sorted_nonsided_shapes_textures(cd_texture_index), [], crit_dist_rect);
+            crit_pos  = possible_positions(4);                              % 4th entry encodes CD position
+            crit_rect = saved_positions{scene_inds, crit_pos};
+            if t_directions(4) == 0
+                % left critical distractor
+                Screen('DrawTexture', search, sorted_left_shapes_textures(cd_texture_index), [], crit_rect);
+            elseif t_directions(4) == 1
+                % right critical distractor
+                Screen('DrawTexture', search, sorted_right_shapes_textures(cd_texture_index), [], crit_rect);
+            end
         end
     
-        remaining_locations = setdiff(positions, target_position_type);
-        remaining_locations = setdiff(remaining_locations, 4); % Remove the critical distractor position if it exists
+        % ---- draw NON-CRITICAL DISTRACTORS at the remaining TYPEs (not positions)
+        remaining_types = setdiff(types, target_type);  % remove the *type* used by target
 
-        for location = 1:length(remaining_locations)
-            % Get the current position rectangle
-            this_position = remaining_locations(location);
-            current_position = possible_positions(this_position);
-            current_rect = saved_positions{scene_inds, current_position};
-            distractor_texture_index = noncritical_distractors(location);
-            % Draw the non-critical distractors ADD IF TO DECIDE ON DIRECTION later
-            Screen('DrawTexture', search, sorted_nonsided_shapes_textures(distractor_texture_index), [], current_rect);
-        end
-
-        % ScreenShot Search
-        if strcmpi(record_pics, 'Y')
-            % Search
-            screenshot(search, 'Search' , trial_looper)
+        for k = 1:numel(remaining_types)
+            this_type = remaining_types(k);                  % one of the two leftover types
+            this_pos  = possible_positions(this_type);       % map TYPE → POSITION
+            this_rect = saved_positions{scene_inds, this_pos};
+            distractor_texture_index = noncritical_distractors(k);
+            if t_directions(1+k) == 0
+                % left non-critical distractor
+                Screen('DrawTexture', search, sorted_left_shapes_textures(distractor_texture_index), [], this_rect);
+            elseif t_directions(1+k) == 1
+                % right non-critical distractor
+                Screen('DrawTexture', search, sorted_right_shapes_textures(distractor_texture_index), [], this_rect);
+            end
         end
 
         %% DRAW CUE DISPLAY
@@ -475,8 +487,8 @@ for run_looper = run_num:total_runs
         % Later: draw the offscreen window onto your main window (w)
         Screen('DrawTexture', w, cue_display);
 
-        HideCursor(scrID);         % Hide mouse cursor before the next trial
-        SetMouse(10, 10, scrID);   % Move the mouse to the corner -- in case some jerk has unhidden it
+        %HideCursor(scrID);         % Hide mouse cursor before the next trial
+        %SetMouse(10, 10, scrID);   % Move the mouse to the corner -- in case some jerk has unhidden it
         
         % Blank ISI
         Screen('DrawTexture', w, fixation);
@@ -487,11 +499,11 @@ for run_looper = run_num:total_runs
         end
         
         % CUE DISPLAY
-        
         Screen('DrawTexture', w, cue_display);
         Screen('flip', w);
         WaitSecs(1); % 1 second cue
 
+        % Draw fixation cross
         Screen('DrawTexture', w, fixation);
         Screen('flip', w);
         WaitSecs(1); % 1 second central fixation
@@ -624,7 +636,16 @@ for run_looper = run_num:total_runs
             end
         end
 
+        if t_directions(1) == 0 && response == key.left
+            trial_accuracy = 1;
+        elseif t_directions(1) == 1 && response == key.right
+            trial_accuracy = 1;
+        else
+            trial_accuracy = 0;
+        end
+
         %% LOG OUTPUT VARIABLES
+        bx_trial_info(trial_looper).trial_num                        = trial_looper;
         bx_trial_info(trial_looper).trial_onset                     = stimOnsetTime;
         bx_trial_info(trial_looper).trial_offset                    = GetSecs();
         bx_trial_info(trial_looper).response_clock_time             = secs;
@@ -634,7 +655,7 @@ for run_looper = run_num:total_runs
         if run_looper <= 4
             bx_trial_info(trial_looper).critical_distractor_idx         = cd_texture_index;
             bx_trial_info(trial_looper).critical_distractor_association = critical_distractor_association;
-        else
+        elseif run_looper > 4
             bx_trial_info(trial_looper).critical_distractor_idx         = NaN;
             bx_trial_info(trial_looper).critical_distractor_association = NaN;
         end
@@ -644,16 +665,27 @@ for run_looper = run_num:total_runs
         if responseMade
             bx_trial_info(trial_looper).response_key                = response;
             bx_trial_info(trial_looper).rt                          = RT;
-            bx_trial_info(trial_looper).accuracy                    = 1; % You may want to set this based on correctness
-        else
+            bx_trial_info(trial_looper).accuracy                    = trial_accuracy; % You may want to set this based on correctness
+        elseif responseMade == false
             bx_trial_info(trial_looper).response_key                = '';
             bx_trial_info(trial_looper).rt                          = NaN;
-            bx_trial_info(trial_looper).accuracy                    = 0;
+            bx_trial_info(trial_looper).accuracy                    = -1; % -1 for no response
         end
 
-        Screen('DrawTexture', w, feedback_correct);
+        if trial_accuracy == 1
+            resp_color = col.green;
+            %Screen('DrawTexture', w, feedback_correct);
+        elseif trial_accuracy == 0 && responseMade
+            resp_color = col.red;
+        elseif trial_accuracy == 0 && responseMade == false
+            resp_color = col.red;
+        end
+
+        % Draw the border
+        Screen('DrawTexture', w, search);
+        Screen('FrameRect', w, resp_color, rect, border_line_width);
         Screen('flip', w);
-        WaitSecs(.5); % 500 ms ITI
+        WaitSecs(500); % 500 ms ITI
 
         Screen('flip', w);
         WaitSecs(.5); % 500 ms ITI
@@ -682,11 +714,6 @@ Screen('Flip', w);
 WaitSecs(2); % Wait for 2 seconds before closing
 DrawFormattedText(w, 'Saving Data...', 'center', 'center');
 Screen('Flip', w);
-
-%% SAVE DATA
-% Save behavioral data
-
-% Save eye movement data
 
 %% SAVE EDF FILE
 if eyetracking == 'Y'
@@ -721,11 +748,3 @@ pfp_ptb_cleanup; % cleanup PTB
 close all; % close all windows
 clear all; % clear all variables
 sca; % close PTB
-
-% Helper function for feedback screens
-function feedback_screen = create_feedback_screen(scrID, rect, bg_color, font, font_size, message, fg_color)
-    feedback_screen = Screen('OpenOffscreenWindow', scrID, bg_color, rect);
-    Screen('TextSize', feedback_screen, font_size);
-    Screen('TextFont', feedback_screen, font);
-    DrawFormattedText(feedback_screen, message, 'center', 'center', fg_color);
-end
