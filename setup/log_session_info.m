@@ -1,4 +1,4 @@
-function log_session_info(subjectID, runNum, totalTrials, startTime, endTime, logFilePath)
+function log_session_info(subjectID, runNum, totalTrials, startTime, endTime, logFilePath, eyetracking, edfFileName)
 % log_session_info
 % Logs basic session metadata to a plain .txt log file
 %
@@ -47,6 +47,27 @@ function log_session_info(subjectID, runNum, totalTrials, startTime, endTime, lo
     fprintf(fid, 'Refresh Rate: %d Hz\n', refreshRate);
     fprintf(fid, 'Screen Number: %d\n', screenNumber);
 
+    if eyetracking
+        fprintf(fid, '\n--- EyeLink Info ---\n');
+        fprintf(fid, 'EDF File: %s\n', edfFileName);
+
+        [verNum, verStr] = Eyelink('GetTrackerVersion');
+        fprintf(fid, 'EyeLink Version: %d\n', verNum);
+        fprintf(fid, 'EyeLink Software: %s\n', verStr);
+
+        eye_used = Eyelink('EyeAvailable');
+        if eye_used == 0
+            eyeName = 'LEFT';
+        elseif eye_used == 1
+            eyeName = 'RIGHT';
+        else
+            eyeName = 'BINOCULAR';
+        end
+        fprintf(fid, 'Eye Tracked: %s\n', eyeName);
+
+        fprintf(fid, 'Sample Rate: %s Hz\n', Eyelink('Command', 'sample_rate?'));
+        fprintf(fid, 'Calibration: completed\n');
+    end
     fclose(fid);
     fprintf('[INFO] Session log saved to %s\n', logFilePath);
 end

@@ -1,4 +1,4 @@
-function el = setup_eyelink(windowPtr, edfFileName)
+function el = setup_eyelink(windowPtr)
     % setupEyelinkTracker Initialize Eyelink with sensible defaults
     %
     % Inputs:
@@ -35,16 +35,6 @@ function el = setup_eyelink(windowPtr, edfFileName)
         error('Eyelink Init failed');
     end
     
-    % Open EDF file
-    i = Eyelink('Openfile', edfFileName);
-    if i ~= 0
-        fprintf('Cannot create EDF file ''%s''.\n', edfFileName);
-        Eyelink('Shutdown');
-        Screen('CloseAll');
-        error('EDF file creation failed');
-    end
-    
-    % Confirm connection (except in dummy mode)
     if Eyelink('IsConnected') ~= 1
         Eyelink('Shutdown');
         Screen('CloseAll');

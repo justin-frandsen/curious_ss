@@ -42,30 +42,84 @@ DISTRACTOR = 4;
 TARGET     = 5;
 CONDITION  = 6;
 
-%% PTB SETTINGS
-screens = Screen('Screens');
-scrID = max(screens);
+%% -----------------------------------------------------------------------
+% SETTINGS
+% ------------------------------------------------------------------------
 
-%% EYETRACKER SETTINGS
-%we initialize this because sometimes if its not set it checks vars that don't exist and throws an error
-mx = 1; 
-my = 1;
-fixationTimeThreshold = 50; % Minimum fixation duration in ms to log
+% Experiment identifiers
+expName      = 'curious_ss';
+sub_num      = 100;
+run_num      = 1;
 
-%% SQL SETTINGS
-use_SQL = true; % true or false
+% Monitor
+screens      = Screen('Screens');
+scrID        = max(screens);
+refresh_rate = 60;  % Hz
 
+% Eyetracker
+eyetracking             = false; % true = real eyetracking, false = no eyetracking
+fixationTimeThreshold   = 50;    % ms, minimum fixation duration to log
+fix.Radius              = 90;
+fix.Timeout             = 5000;
+fix.reqDur              = 500;
 
-% RECORD PICS/TRACK EYES?
-record_pics = 'N';  % change to 'Y' to record pictures of stimuli
-computer = 'PC'; % Mac or PC
-refresh_rate = 60; % Hz of monitor
-eyetracking = 'N'; % Y or N
-dummymode = 1; % 0 for real eyetracking, 1 for dummy mode (no eyetracking)
-
-sub_num = 100;
-run_num = 1;
+% Feedback
 border_line_width = 30;
+penalty           = 2000;  % ms
+timeout           = 5000;  % ms
+post_search_duration = 5;  % sec
+feedback_duration   = 0.2; % sec
+
+% Trial control
+main_runs      = 6;
+practice_runs  = 0;
+total_runs     = main_runs + practice_runs;
+total_trials   = 72;
+search_display_duration = 15; % sec
+
+% Fonts
+my_font      = 'Arial';
+my_font_size = 60;
+
+% Beeper
+beeper.tone     = 200;  % Hz
+beeper.loudness = 0.5;  % 0-1
+beeper.duration = 0.3;  % sec
+
+% Response Keys
+KbName('UnifyKeyNames');
+key.left  = 'z';
+key.right = 'x';
+key.yes   = '1!';
+key.no    = '2@';
+key.esc   = '0)';
+validKeys = {key.left, key.right};
+
+% Colors
+col.white = [255 255 255]; 
+col.black = [0 0 0];
+col.gray  = [117 117 117];
+col.red   = [255 0 0];
+col.green = [0 255 0];
+col.bg    = col.gray;
+col.fg    = col.white;
+col.fix   = col.black;
+
+% Directories
+data_folder             = 'data';
+bx_output_folder_name   = fullfile(data_folder, 'bx_data');
+eye_output_folder_name  = fullfile(data_folder, 'eye_data');
+edf_output_folder_name  = fullfile(data_folder, 'edf_data');
+stimuli_folder         = 'stimuli';
+scene_folder            = 'stimuli/scenes/';
+nonsided_shapes         = 'stimuli/shapes/transparent_black';
+shapes_left             = 'stimuli/shapes/black_left_T';
+shapes_right            = 'stimuli/shapes/black_right_T';
+
+% Output formats
+bx_file_format   = 'bx_Subj%.3dRun%.2d.csv';
+eye_file_format  = 'fixation_data_subj_%.3d_run_%.3d.csv';
+edf_file_format  = 'S%.3dR%.1d.edf';
 
 %% GET SUBJECT NUMBER AND RUN NUMBER AND CHECK IF THEY ARE VALID/EXIST
 % Check if sub_num is defined, if not prompt user for input
@@ -110,26 +164,6 @@ proceed_response = 'y'; %input('', 's');
 if ~strcmpi(proceed_response, 'Y')
     error('Experiment aborted by user.');
 end
-
-%% OUTPUT VARIABLES
-% Output folders and file formats for behavioral data, eye-tracking data
-
-% Bx output folder and file format
-data_folder = 'data';
-bx_output_folder_name = fullfile(data_folder, 'bx_data');
-bx_file_format = 'bx_Subj%.3dRun%.2d.csv';
-
-% Preprocessed eye data output folder and file format
-eye_output_folder_name = fullfile(data_folder, 'eye_data');
-eye_file_format = 'fixation_data_subj_%.3d_run_%.3d.csv';
-
-% EDF output folder and file format
-edf_output_folder_name = fullfile(data_folder, 'edf_data');
-edf_file_format = 'S%.3dR%.1d.edf';
-
-% scene images locations
-scene_folder            = 'stimuli/scenes/';
-
 %% MAKE SURE data directory and its subdirectories exist
 subdirs = {'bx_data', 'edf_data', 'eye_data', 'log_files'};
 
@@ -169,55 +203,6 @@ if exist(fullfile(edf_output_folder_name, edf_file_name), 'file')
     error('Subject edf file already exists. Delete the file to rerun with the same subject number.');
 end
 
-%% IMPORTANT VARIABLES
-expName = 'curious_ss';
-fudge = .005; % 5 ms to add before screen flip to ensure we hit the refresh cycle
-penalty = 2; % 2000 ms
-timeout = 5000; % 2000 ms
-
-% Fixation variables
-fix.Radius = 90;
-fix.Timeout = 5000;
-fix.reqDur = 500;
-
-% Run information
-main_runs = 6;
-practice_runs = 0;
-total_runs = main_runs + practice_runs;
-
-total_trials = 72;
-
-%Fonts
-my_font = 'Arial'; % for any text
-my_font_size = 60;
-
-% Beeper
-beeper.tone = 200; % 200 Hz
-beeper.loudness = 0.5; % 25% amplitude default (.5)
-beeper.duration = 0.3; % 300 ms default
-
-% Response Keys
-KbName('UnifyKeyNames');
-
-key.left = 'z'; %'3#'; % 32
-key.right = 'x'; %'4$';% 33
-key.yes = '1!'; % top left button on button box
-key.no = '2@'; % top right button on button box
-key.esc = '0)'; % 39
-
-validKeys = {key.left, key.right};
-
-% colors
-col.white = [255 255 255]; 
-col.black = [0 0 0];
-col.gray = [117 117 117];
-col.red = [255 0 0];
-col.green = [0 255 0];
-
-col.bg = col.gray; % background color
-col.fg = col.white; % foreground color
-col.fix = col.black; % fixation color
-
 % Initilize PTB window
 [w, rect] = pfp_ptb_init; %call this function which contains all the screen initilization.
 [width, height] = Screen('WindowSize', scrID); %get the width and height of the screen
@@ -225,12 +210,6 @@ col.fix = col.black; % fixation color
 Screen('BlendFunction', w, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA'); %allows the .png files to be transparent
 
 %% LOAD STIMULI!!!
-% shapes images locations
-% shapes images locations
-nonsided_shapes         = 'stimuli/shapes/transparent_black';
-shapes_left             = 'stimuli/shapes/black_left_T';
-shapes_right            = 'stimuli/shapes/black_right_T';
-
 DrawFormattedText(w, 'Loading Images...', 'center', 'center');
 Screen('Flip', w);
 
@@ -278,7 +257,7 @@ randomizor = load('trial_structure_files/randomizor.mat'); % load the pre-random
 randomizor = randomizor.randomizor_matrix; % get the matrix from the struct
 
 %% INITIALIZE EYETRACKER
-if eyetracking == 'Y'
+if eyetracking
     % Initialize Eyelink
     if ~exist(edf_output_folder_name, 'dir')
         mkdir(edf_output_folder_name);
@@ -305,10 +284,11 @@ for run_looper = run_num:total_runs
     end
 
     %% INITIALIZE BX STRUCT
-    bx_trial_info(1:72) = struct( ...
+    % Preallocate structure for all trials
+    bx_trial_info(1:total_trials) = struct( ...
         'sub_num', sub_num, ...
         'run_num', run_looper, ...
-        'phase', phase, ... % training or testing
+        'phase', phase, ...
         'trial_num', [], ...
         'scene_idx', [], ...
         'target_shape_idx', [], ...
@@ -321,31 +301,12 @@ for run_looper = run_num:total_runs
         'response_key', '', ...
         'rt', [], ...
         'accuracy', [], ...
-        'timestamp', datestr(now, 'yyyy-mm-dd HH:MM:SS.FFF') ...
+        'trial_onset', [], ...
+        'trial_offset', [], ...
+        'response_clock_time', [], ...
+        'timestamp', '' ...
     );
 
-    for t = 1:total_trials
-        trials(t).trial_num = t;
-    end
-
-    %% INITIALIZE FIXATION STRUCT
-    fixationTemplate = struct( ...
-        'sub_num', [], ...
-        'run_num', [], ...
-        'trial_num', [], ...
-        'fixation_onset', [], ...
-        'fixation_offset', [], ...
-        'fixation_num', [], ...
-        'duration_ms', [], ...
-        'fixated_rect', [], ...
-        'incorrect_target_location', [], ...
-        'target_shape_idx', [], ...
-        'target_position_idx', [] ...
-    );
-
-    %reset fixation struct and important variables
-    fixationStruct = repmat(fixationTemplate, 0, 1); % empty array with correct fields
-    
     fixationCounter = 0;
     currentFixationRect = 0;
     previousFixationRect = 0;
@@ -360,58 +321,57 @@ for run_looper = run_num:total_runs
     critical_distractor_associations = this_subj_this_run.critical_distractors_associations;
     noncritical_distractors = this_subj_this_run.noncritical_distractors;
 
-
-    % This is where we will show instructions do this at the end!!!
-    %instruct_curious_ss(sub_num, run_looper, w, scrID, rect, col); % show instructions will need to change this to a function later
-
-    % eyelink calibration
-    if strcmpi(eyetracking, 'Y')
-        % Enter tracker setup/calibration
-        EyelinkDoTrackerSetup(el);
-    end
     
+    if eyetracking
+        % Create unique EDF filename for this run
+        edfFileName = sprintf('S%.3dR%.1d.edf', sub_num, run_looper);
+        
+        % Open EDF file on Eyelink computer
+        i = Eyelink('OpenFile', edfFileName);
+        if i ~= 0
+            fprintf('Cannot create EDF file ''%s''.\n', edfFileName);
+            Eyelink('Shutdown');
+            Screen('CloseAll');
+            error('EDF file creation failed');
+        end
+    
+        % Tracker setup/calibration
+        EyelinkDoTrackerSetup(el);
+    
+        % Send run start message
+        Eyelink('Message', 'Experiment start Subject %d Run %d', sub_num, run_looper);
+    
+        % Start recording for this run
+        Eyelink('StartRecording');
+    end
+
+    
+    
+        % This is where we will show instructions do this at the end!!!
+        %instruct_curious_ss(sub_num, run_looper, w, scrID, rect, col); % show instructions will need to change this to a function later
 
     %% Loop through trials
-    for trial_looper = 1:total_trials
-        % Example run info
-        run_id = 'run_01';
-        sub_num = 1;
-        start_time = datestr(now, 'yyyy-mm-dd HH:MM:SS');
+    for trial_looper = 1:5%total_trials
+        response = -1; % set response to -1 (missing) at start of each trial
+        %% GET TRIAL VARIABLES
+        scene_inds                     = scene_randomizor(trial_looper, SCENE_INDS); % Get the scene index for this trial
+        possible_positions             = this_subj_this_run.all_possible_locations(trial_looper, :); % Get the possible positions for this trial
+        t_directions                   = this_subj_this_run.t_directions(trial_looper, :); % Get the target directions for this trial
+        target_index1                  = scene_randomizor(trial_looper, TARGET);
+        target_texture_index           = target_inds(target_index1);
+        target_association             = target_associations(target_index1); %1 = wall 2 = counter, 3 = floor.
+        trial_condition                = scene_randomizor(trial_looper, CONDITION);
+        noncritical_distractors        = this_subj_this_run.this_run_distractors(trial_looper, :);
+        length_noncritical_distractors = length(noncritical_distractors);
+        noncritical_distractors        = noncritical_distractors(1:length_noncritical_distractors-1); % remove the last one which is just the run number
 
-        % Insert a new run row
-        exec(conn, sprintf(['INSERT INTO runs (run_id, sub_num, start_time) ' ...
-                            'VALUES (''%s'', %d, ''%s'');'], run_id, sub_num, start_time));
-
-
-        response = -1;
-
-        fprintf("Trial %d/%d for subject %d, run %d, %.1f%% complete\n", ...
-            trial_looper, total_trials, sub_num, run_looper, ...
-            trial_looper/total_trials*100);
-        
-        scene_inds = scene_randomizor(trial_looper, SCENE_INDS); % Get the scene index for this trial
-
-        possible_positions = this_subj_this_run.all_possible_locations(trial_looper, :); % Get the possible positions for this trial
-
-        t_directions = this_subj_this_run.t_directions(trial_looper, :); % Get the target directions for this trial
-
-        target_index1 = scene_randomizor(trial_looper, TARGET);
-        target_texture_index = target_inds(target_index1);
-
-        target_association = target_associations(target_index1); %1 = wall 2 = counter, 3 = floor.
-
-        trial_condition = scene_randomizor(trial_looper, CONDITION);
-
+        % get critical distractor info if in training phase
         if run_looper <= 4
             critical_distractor_index1 = scene_randomizor(trial_looper, DISTRACTOR);
             cd_texture_index = critical_distractor_inds(critical_distractor_index1);
             critical_distractor_association = critical_distractor_associations(critical_distractor_index1);
         end
 
-        noncritical_distractors = this_subj_this_run.this_run_distractors(trial_looper, :);
-        length_noncritical_distractors = length(noncritical_distractors);
-        noncritical_distractors = noncritical_distractors(1:length_noncritical_distractors-1); % remove the last one which is just the run number
-        
         %% DRAW SCENE   
         search = Screen('OpenOffscreenWindow', scrID, col.bg, rect, 32);
         post_search = Screen('OpenOffscreenWindow', scrID, col.bg, rect, 32);
@@ -470,7 +430,6 @@ for run_looper = run_num:total_runs
                 % left critical distractor
                 Screen('DrawTexture', search, sorted_left_shapes_textures(cd_texture_index), [], crit_rect);
                 Screen('DrawTexture', post_search, sorted_left_shapes_textures(cd_texture_index), [], crit_rect);
-
             elseif t_directions(4) == 1
                 % right critical distractor
                 Screen('DrawTexture', search, sorted_right_shapes_textures(cd_texture_index), [], crit_rect);
@@ -513,9 +472,13 @@ for run_looper = run_num:total_runs
         %HideCursor(scrID);         % Hide mouse cursor before the next trial
         %SetMouse(10, 10, scrID);   % Move the mouse to the corner -- in case some jerk has unhidden it
         
-        % Blank ISI
+        % Fixation cross
         Screen('DrawTexture', w, fixation);
         Screen('flip', w);
+
+        if eyetracking
+            Eyelink('Message', 'First fixation cross onset');
+        end
 
         if strcmp(eyetracking, 'Y')
             centralFixation(w, height, width, fixation, fix.reqDur, fix.Timeout, fix.Radius, t, el, eye, search)
@@ -524,30 +487,36 @@ for run_looper = run_num:total_runs
         % CUE DISPLAY
         Screen('DrawTexture', w, cue_display);
         Screen('flip', w);
+
+        if eyetracking
+            Eyelink('Message', 'Cue display onset');
+        end
+
         WaitSecs(1); % 1 second cue
 
         % Draw fixation cross
         Screen('DrawTexture', w, fixation);
         Screen('flip', w);
+
+        if eyetracking
+            Eyelink('Message', 'Second fixation cross onset');
+        end
+
         WaitSecs(1); % 1 second central fixation
 
         %% SEARCH DISPLAY
         Screen('DrawTexture', w, search);
         stimOnsetTime = Screen('Flip', w); %this flip displays the scene with all four shapes
 
-        if strcmp(eyetracking, 'Y')
-            Eyelink('Message', 'SYNCTIME');
-            Eyelink('Message', 'Scene Presentation:')  
+        if eyetracking
+            Eyelink('Message', 'SEARCH_DISPLAY_ONSET Scene %d TargetIdx %d Condition %d', ...
+            scene_inds, target_texture_index, trial_condition);
         end
-
-        trialActive = true;  % Flag to keep the trial going
+        % --- Wait for response or until deadline ---
         responseMade = false;
+        trialActive  = true;
 
-        startTime = GetSecs(); % Initialize startTime for each trial
-        while trialActive && (GetSecs() - startTime <= 15)
-            %-----------------------------------------------------
-            % CHECK FOR RESPONSE KEY PRESS
-            %-----------------------------------------------------
+        while trialActive && (GetSecs - stimOnsetTime) < search_display_duration
             [key_is_down, secs, key_code] = KbCheck;
             if key_is_down && ~responseMade
                 responseKey = KbName(key_code);
@@ -559,103 +528,13 @@ for run_looper = run_num:total_runs
                     RT = round((secs - stimOnsetTime) * 1000);
                     responseMade = true;
                 
-                    if dummymode == 0
-                        Eyelink('Message', 'Key pressed');
+                    if eyetracking
+                        Eyelink('Message', 'RESPONSE Key %s RT %dms', response, RT);
                     end
                 
-                    % Flag to end the trial after logging last fixation
+                    % End trial after logging last fixation
                     trialActive = false;
                 end
-            end
-        
-            %-----------------------------------------------------
-            % TRACK GAZE OR MOUSE
-            %-----------------------------------------------------
-            if dummymode == 0
-                eyelinkError = Eyelink('CheckRecording');
-                if eyelinkError ~= 0
-                    fprintf('Eyelink error: %d\n', eyelinkError);
-                    break;
-                end
-                if Eyelink('NewFloatSampleAvailable') > 0
-                    evt = Eyelink('NewestFloatSample');
-                    if eye_used ~= -1
-                        x = evt.gx(eye_used+1);
-                        y = evt.gy(eye_used+1);
-                        if x ~= el.MISSING_DATA && y ~= el.MISSING_DATA && evt.pa(eye_used+1) > 0
-                            mx = x;
-                            my = y;
-                        end
-                    end
-                end
-            else
-                [mx, my] = GetMouse(w);
-            end
-        
-            %-----------------------------------------------------
-            % CHECK IF GAZE IS IN SHAPE AND LOG FIXATION
-            %-----------------------------------------------------
-            isInInterestArea = false;
-            for interestArea = 1:4
-                if IsInRect(mx, my, saved_positions{scene_inds, interestArea})
-                    isInInterestArea = true;
-                    currentFixationRect = interestArea;
-                    break;
-                end
-            end
-        
-            if ~isInInterestArea
-                currentFixationRect = 0;
-            end
-        
-            % Fixation transition
-            if previousFixationRect ~= currentFixationRect
-                if currentFixationRect ~= 0
-                    fixationStartTime = GetSecs();
-                elseif previousFixationRect ~= 0
-                    fixationEndTime = GetSecs();
-                    fixationDuration = (fixationEndTime - fixationStartTime) * 1000;
-                    if fixationDuration > fixationTimeThreshold
-                        fixationCounter = fixationCounter + 1;
-                        fixationStruct(fixationCounter) = struct( ...
-                            'sub_num', sub_num, ...
-                            'run_num', run_looper, ...
-                            'trial_num', trial_looper, ...
-                            'fixation_onset', fixationStartTime - stimOnsetTime, ...
-                            'fixation_offset', fixationEndTime - stimOnsetTime, ...
-                            'fixation_num', fixationCounter, ...
-                            'duration_ms', fixationDuration, ...
-                            'fixated_rect', previousFixationRect, ...
-                            'incorrect_target_location', trial_condition, ...
-                            'target_shape_idx', target_texture_index, ...
-                            'target_position_idx', target_position ...
-                        );
-                    end
-                end
-            end
-            previousFixationRect = currentFixationRect;
-        end
-
-        % Logging the last fixation if it's ongoing at the end of the loop
-        if previousFixationRect ~= 0
-            fixationEndTime = GetSecs();
-            fixationDuration = (fixationEndTime - fixationStartTime) * 1000;
-            % Logging last fixation data
-            if fixationDuration > fixationTimeThreshold
-                fixationCounter = fixationCounter + 1;
-                fixationStruct(fixationCounter) = struct( ...
-                    'sub_num', sub_num, ...
-                    'run_num', run_looper, ...
-                    'trial_num', trial_looper, ...
-                    'fixation_onset', fixationStartTime - stimOnsetTime, ...
-                    'fixation_offset', fixationEndTime - stimOnsetTime, ...
-                    'fixation_num', fixationCounter, ...
-                    'duration_ms', fixationDuration, ...
-                    'fixated_rect', previousFixationRect, ...
-                    'incorrect_target_location', trial_condition, ...
-                    'target_shape_idx', target_texture_index, ...
-                    'target_position_idx', target_position ...
-                );   
             end
         end
 
@@ -668,7 +547,7 @@ for run_looper = run_num:total_runs
         end
 
         %% LOG OUTPUT VARIABLES
-        bx_trial_info(trial_looper).trial_num                        = trial_looper;
+        bx_trial_info(trial_looper).trial_num                       = trial_looper;
         bx_trial_info(trial_looper).trial_onset                     = stimOnsetTime;
         bx_trial_info(trial_looper).trial_offset                    = GetSecs();
         bx_trial_info(trial_looper).response_clock_time             = secs;
@@ -695,33 +574,85 @@ for run_looper = run_num:total_runs
             bx_trial_info(trial_looper).accuracy                    = -1; % -1 for no response
         end
 
-        post_search_duration = 5; % seconds
+        post_search_duration = 2; % seconds
         feedback_duration = 0.2; % seconds
+        post_viewing = true;
+
 
         % if incorrect give feedback (red border) for 200 ms then show post search screen for remaining time
         % if correct show post search screen for full duration
-        if trial_accuracy == 0
-            resp_color = col.red;
-            Screen('DrawTexture', w, post_search);
-            Screen('FrameRect', w, resp_color, rect, border_line_width);
-            Screen('flip', w);
-            WaitSecs(feedback_duration); % 200 ms
-            Screen('DrawTexture', w, post_search);
-            Screen('flip', w);
-            WaitSecs(post_search_duration-feedback_duration)
-        elseif trial_accuracy == 1
-            resp_color = col.green;
-            Screen('DrawTexture', w, post_search);
-            Screen('flip', w);
-            WaitSecs(post_search_duration)
-        end
+        if run_looper <= 4
+            if trial_accuracy == 0
+                resp_color = col.red;
+                Screen('DrawTexture', w, post_search);
+                Screen('FrameRect', w, resp_color, rect, border_line_width);
+                Screen('flip', w);
 
+                % Eyelink message for feedback onset
+                if eyetracking
+                    Eyelink('Message', 'Feedback: Incorrect onset');
+                end
+
+                WaitSecs(feedback_duration); % 200 ms
+                Screen('DrawTexture', w, post_search);
+                Screen('flip', w);
+
+                % Eyelink message for feedback offset / post-search onset
+                if eyetracking
+                    Eyelink('Message', 'Feedback: Incorrect offset / Post-search onset');
+                end
+
+                WaitSecs(post_search_duration-feedback_duration)
+            elseif trial_accuracy == 1
+                resp_color = col.green;
+                Screen('DrawTexture', w, post_search);
+                Screen('flip', w);
+
+                % Eyelink message for correct feedback/post-search
+                if eyetracking
+                    Eyelink('Message', 'Feedback: Correct / Post-search onset');
+                end
+
+                WaitSecs(post_search_duration)
+            end
+        end
         %draw blank ITI
         Screen('flip', w);
+
+        if eyetracking
+            Eyelink('Message', 'Post-search offset / ITI onset');
+            Eyelink('Message', 'TRIAL_RESULT %d ACC %d RT %.2f', trial_looper, trial_accuracy, RT);
+            Eyelink('Message', 'Trial %d end', trial_looper);
+        end
         WaitSecs(.5); % 500 ms ITI
     end
 
     %% END OF RUN
+    if eyetracking
+        Eyelink('Message', 'Experiment end Subject %d Run %d', sub_num, run_looper);
+
+        Eyelink('StopRecording')
+        Eyelink('Command', 'set_idle_mode'); %set tracking to idle
+        WaitSecs(0.5);
+        Eyelink('CloseFile'); %close the EDF file
+        
+        % Full local path to save EDF file
+        localPath = fullfile(edf_output_folder_name, edf_file_name);
+
+        try
+            fprintf('Receiving data file ''%s''\n', edf_file_name);
+            status = Eyelink('ReceiveFile', edfFiledf_file_nameeName, localPath, 1);
+            if status > 0
+                fprintf('ReceiveFile status %d\n', status);
+            end
+            if 2 == exist(edf_file_name, 'file')
+                fprintf('Data file ''%s'' can be found in ''%s''\n', edf_file_name, pwd);
+            end
+        catch
+            fprintf('Problem receiving data file ''%s''\n', edf_file_name);
+        end
+    end
+
     text = sprintf('Run %d/%d complete!', run_looper, total_runs);
     DrawFormattedText(w, text, 'center', 'center');
     Screen('Flip', w);
@@ -729,50 +660,31 @@ for run_looper = run_num:total_runs
 
     % log session info
     sessionEnd = now;
-    log_session_info(sub_num, run_looper, total_trials, sessionStart, sessionEnd, logFile);
+    log_session_info(sub_num, run_looper, total_trials, sessionStart, sessionEnd, logFile, eyetracking, edf_file_name);
 
     % save trial data to CSV
-    %trialTable = struct2table(trials);
-    %filename = sprintf('data/bx_data/%d_run%d.csv', subjectID, runNumber);
-    %writetable(trialTable, filename);
+    trialTable = struct2table(bx_trial_info);
+    csv_filename = sprintf('data/bx_data/%d_run%d.csv', sub_num, run_looper);
+    MAT_filename = sprintf('data/MAT_data/%d_run%d.csv', sub_num, run_looper);
 
+    writetable(trialTable, csv_filename);
+    fprintf('[INFO] Saved behavioral data: %s\n', csv_filename);
+
+    save(MAT_filename); % Save as .mat file
+    fprintf('[INFO] Full workspace saved: %s\n', MAT_filename);
 end
+
 %% END EXPERIMENT
 % Show end of experiment message
+if eyetracking
+    Eyelink('Message', 'EXPERIMENT COMPLETE Subject %d', sub_num);
+end
 DrawFormattedText(w, 'Experiment Complete! Thank you for participating.', 'center', 'center', col.fg);
 Screen('Flip', w);
 WaitSecs(2); % Wait for 2 seconds before closing
 DrawFormattedText(w, 'Saving Data...', 'center', 'center');
 Screen('Flip', w);
-
-%% SAVE EDF FILE
-if eyetracking == 'Y'
-    WaitSecs(1.0);
-    Eyelink('StopReccording')
-    Eyelink('Command', 'set_idle_mode'); %set tracking to idle
-    WaitSecs(0.5);
-    Eyelink('CloseFile'); %close the EDF file
-    
-    % grab the EDF file from the EyeLink computer (shows text messages
-    % in command window based on whether file retrieval was successful
-    % or not)
-    cd data/edf_data/
-    try
-        fprintf('Receiving data file ''%s''\n', edfFileName);
-        status=Eyelink('ReceiveFile');
-        if status > 0
-            fprintf('ReceiveFile status %d\n', status);
-        end
-        if 2 == exist(edfFileName, 'file')
-            fprintf('Data file ''%s'' can be found in ''%s''\n', edfFileName, pwd);
-        end
-    catch
-        fprintf('Problem receiving data file ''%s''\n', edfFileName);
-    end
-    cd ../../
-    
-    Eyelink('Shutdown'); %shutdown Matlab connection to EyeLink
-end
+WaitSecs(3)% Wait for 3 seconds to simulate saving time
 
 pfp_ptb_cleanup; % cleanup PTB
 close all; % close all windows
