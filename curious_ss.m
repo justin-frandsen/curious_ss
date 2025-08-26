@@ -110,6 +110,8 @@ data_folder             = 'data';
 bx_output_folder_name   = fullfile(data_folder, 'bx_data');
 eye_output_folder_name  = fullfile(data_folder, 'eye_data');
 edf_output_folder_name  = fullfile(data_folder, 'edf_data');
+mat_output_folder_name  = fullfile(data_folder, 'MAT_data');
+
 stimuli_folder         = 'stimuli';
 scene_folder            = 'stimuli/scenes/';
 nonsided_shapes         = 'stimuli/shapes/transparent_black';
@@ -120,6 +122,7 @@ shapes_right            = 'stimuli/shapes/black_right_T';
 bx_file_format   = 'bx_Subj%.3dRun%.2d.csv';
 eye_file_format  = 'fixation_data_subj_%.3d_run_%.3d.csv';
 edf_file_format  = 'S%.3dR%.1d.edf';
+MAT_file_format  = 'subj%.3d_run%.2d.mat';
 
 %% GET SUBJECT NUMBER AND RUN NUMBER AND CHECK IF THEY ARE VALID/EXIST
 % Check if sub_num is defined, if not prompt user for input
@@ -664,8 +667,14 @@ for run_looper = run_num:total_runs
 
     % save trial data to CSV
     trialTable = struct2table(bx_trial_info);
-    csv_filename = sprintf('data/bx_data/%d_run%d.csv', sub_num, run_looper);
-    MAT_filename = sprintf('data/MAT_data/%d_run%d.csv', sub_num, run_looper);
+    % Define filenames with formatting
+    csv_filename = sprintf('Subj%dRun%02d.csv', sub_num, run_looper);
+    MAT_filename = sprintf('Subj%dRun%02d.mat', sub_num, run_looper);
+
+    % Combine with folder
+    csv_filename = fullfile(bx_output_folder_name, csv_filename);
+    MAT_filename = fullfile(mat_output_folder_name, MAT_filename);
+
 
     writetable(trialTable, csv_filename);
     fprintf('[INFO] Saved behavioral data: %s\n', csv_filename);
