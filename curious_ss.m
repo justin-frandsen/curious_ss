@@ -52,6 +52,9 @@ mx = 1;
 my = 1;
 fixationTimeThreshold = 50; % Minimum fixation duration in ms to log
 
+%% SQL SETTINGS
+use_SQL = true; % true or false
+
 
 % RECORD PICS/TRACK EYES?
 record_pics = 'N';  % change to 'Y' to record pictures of stimuli
@@ -340,9 +343,10 @@ for run_looper = run_num:total_runs
         'target_position_idx', [] ...
     );
 
+    %reset fixation struct and important variables
     fixationStruct = repmat(fixationTemplate, 0, 1); % empty array with correct fields
+    
     fixationCounter = 0;
-
     currentFixationRect = 0;
     previousFixationRect = 0;
 
@@ -369,6 +373,16 @@ for run_looper = run_num:total_runs
 
     %% Loop through trials
     for trial_looper = 1:total_trials
+        % Example run info
+        run_id = 'run_01';
+        sub_num = 1;
+        start_time = datestr(now, 'yyyy-mm-dd HH:MM:SS');
+
+        % Insert a new run row
+        exec(conn, sprintf(['INSERT INTO runs (run_id, sub_num, start_time) ' ...
+                            'VALUES (''%s'', %d, ''%s'');'], run_id, sub_num, start_time));
+
+
         response = -1;
 
         fprintf("Trial %d/%d for subject %d, run %d, %.1f%% complete\n", ...
@@ -400,11 +414,15 @@ for run_looper = run_num:total_runs
         
         %% DRAW SCENE   
         search = Screen('OpenOffscreenWindow', scrID, col.bg, rect, 32);
+        post_search = Screen('OpenOffscreenWindow', scrID, col.bg, rect, 32);
         % Draw the scene texture
         Screen('DrawTexture', search, scene_textures(scene_inds), [], rect);
+        Screen('DrawTexture', post_search, scene_textures(scene_inds), [], rect);
 
         % Enable blending for transparency inside this offscreen window
         Screen('BlendFunction', search, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        % Enable blending for transparency inside this offscreen window
+        Screen('BlendFunction', post_search, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         types     = [1 2 3];      % semantic categories: wall/counter/floor
         positions = [1 2 3 4];    % physical rect indices
@@ -451,9 +469,12 @@ for run_looper = run_num:total_runs
             if t_directions(4) == 0
                 % left critical distractor
                 Screen('DrawTexture', search, sorted_left_shapes_textures(cd_texture_index), [], crit_rect);
+                Screen('DrawTexture', post_search, sorted_left_shapes_textures(cd_texture_index), [], crit_rect);
+
             elseif t_directions(4) == 1
                 % right critical distractor
                 Screen('DrawTexture', search, sorted_right_shapes_textures(cd_texture_index), [], crit_rect);
+                Screen('DrawTexture', post_search, sorted_right_shapes_textures(cd_texture_index), [], crit_rect);
             end
         end
     
@@ -468,9 +489,11 @@ for run_looper = run_num:total_runs
             if t_directions(1+k) == 0
                 % left non-critical distractor
                 Screen('DrawTexture', search, sorted_left_shapes_textures(distractor_texture_index), [], this_rect);
+                Screen('DrawTexture', post_search, sorted_left_shapes_textures(distractor_texture_index), [], this_rect);
             elseif t_directions(1+k) == 1
                 % right non-critical distractor
                 Screen('DrawTexture', search, sorted_right_shapes_textures(distractor_texture_index), [], this_rect);
+                Screen('DrawTexture', post_search, sorted_right_shapes_textures(distractor_texture_index), [], this_rect);
             end
         end
 
@@ -672,21 +695,28 @@ for run_looper = run_num:total_runs
             bx_trial_info(trial_looper).accuracy                    = -1; % -1 for no response
         end
 
-        if trial_accuracy == 1
+        post_search_duration = 5; % seconds
+        feedback_duration = 0.2; % seconds
+
+        % if incorrect give feedback (red border) for 200 ms then show post search screen for remaining time
+        % if correct show post search screen for full duration
+        if trial_accuracy == 0
+            resp_color = col.red;
+            Screen('DrawTexture', w, post_search);
+            Screen('FrameRect', w, resp_color, rect, border_line_width);
+            Screen('flip', w);
+            WaitSecs(feedback_duration); % 200 ms
+            Screen('DrawTexture', w, post_search);
+            Screen('flip', w);
+            WaitSecs(post_search_duration-feedback_duration)
+        elseif trial_accuracy == 1
             resp_color = col.green;
-            %Screen('DrawTexture', w, feedback_correct);
-        elseif trial_accuracy == 0 && responseMade
-            resp_color = col.red;
-        elseif trial_accuracy == 0 && responseMade == false
-            resp_color = col.red;
+            Screen('DrawTexture', w, post_search);
+            Screen('flip', w);
+            WaitSecs(post_search_duration)
         end
 
-        % Draw the border
-        Screen('DrawTexture', w, search);
-        Screen('FrameRect', w, resp_color, rect, border_line_width);
-        Screen('flip', w);
-        WaitSecs(500); % 500 ms ITI
-
+        %draw blank ITI
         Screen('flip', w);
         WaitSecs(.5); % 500 ms ITI
     end
