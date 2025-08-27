@@ -327,12 +327,12 @@ for run_looper = run_num:total_runs
     
     if eyetracking
         % Create unique EDF filename for this run
-        edfFileName = sprintf('S%.3dR%.1d.edf', sub_num, run_looper);
+        edf_file_name = sprintf('S%.3dR%.1d.edf', sub_num, run_looper);
         
         % Open EDF file on Eyelink computer
-        i = Eyelink('OpenFile', edfFileName);
+        i = Eyelink('OpenFile', edf_file_name);
         if i ~= 0
-            fprintf('Cannot create EDF file ''%s''.\n', edfFileName);
+            fprintf('Cannot create EDF file ''%s''.\n', edf_file_name);
             Eyelink('Shutdown');
             Screen('CloseAll');
             error('EDF file creation failed');
@@ -343,9 +343,6 @@ for run_looper = run_num:total_runs
     
         % Send run start message
         Eyelink('Message', 'Experiment start Subject %d Run %d', sub_num, run_looper);
-    
-        % Start recording for this run
-        Eyelink('StartRecording');
     end
 
     
@@ -622,6 +619,9 @@ for run_looper = run_num:total_runs
             Eyelink('Message', 'Post-search offset / ITI onset');
             Eyelink('Message', 'TRIAL_RESULT %d ACC %d RT %.2f', trial_looper, trial_accuracy, RT);
             Eyelink('Message', 'Trial %d end', trial_looper);
+            
+            Eyelink('StopRecording');
+            Eyelink('Command', 'set_idle_mode');  
         end
         WaitSecs(.5); % 500 ms ITI
     end

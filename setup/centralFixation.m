@@ -14,6 +14,8 @@ ctrY = scrH/2;
 fix.finished = 0;
 
 while ~fix.finished
+    Eyelink('StartRecording');
+    WaitSecs(0.05);
     Eyelink('Message', 'TRIALID %i', t);
     Eyelink('Command', 'record_status_message %i', t);
     Eyelink('Message', 'fixCross');
