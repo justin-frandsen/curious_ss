@@ -472,19 +472,14 @@ for run_looper = run_num:total_runs
         % Later: draw the offscreen window onto your main window (w)
         Screen('DrawTexture', w, cue_display);
 
-        %HideCursor(scrID);         % Hide mouse cursor before the next trial
-        %SetMouse(10, 10, scrID);   % Move the mouse to the corner -- in case some jerk has unhidden it
-        
-        % Fixation cross
-        Screen('DrawTexture', w, fixation);
-        Screen('flip', w);
-
         if eyetracking
-            Eyelink('Message', 'First fixation cross onset');
-        end
-
-        if strcmp(eyetracking, 'Y')
-            centralFixation(w, height, width, fixation, fix.reqDur, fix.Timeout, fix.Radius, t, el, eye, search)
+            HideCursor(scrID);         % Hide mouse cursor before the next trial
+            SetMouse(10, 10, scrID);   % Move the mouse to the corner -- in case some jerk has unhidden it    
+            centralFixation(w, height, width, fixation, fix, trial_looper, el, eye)
+        else
+            % Fixation cross
+            Screen('DrawTexture', w, fixation);
+            Screen('flip', w);
         end
         
         % CUE DISPLAY
@@ -495,20 +490,20 @@ for run_looper = run_num:total_runs
             Eyelink('Message', 'Cue display onset');
         end
 
-        WaitSecs(1); % 1 second cue
-
         % Draw fixation cross
         Screen('DrawTexture', w, fixation);
-        Screen('flip', w);
+        WaitSecs(1); % 1 second cue
+        
+        Screen('flip', w); %flip to show fixation cross again
 
         if eyetracking
             Eyelink('Message', 'Second fixation cross onset');
         end
 
+        Screen('DrawTexture', w, search); %draw the search display
         WaitSecs(1); % 1 second central fixation
 
         %% SEARCH DISPLAY
-        Screen('DrawTexture', w, search);
         stimOnsetTime = Screen('Flip', w); %this flip displays the scene with all four shapes
 
         if eyetracking
@@ -593,7 +588,7 @@ for run_looper = run_num:total_runs
 
                 % Eyelink message for feedback onset
                 if eyetracking
-                    Eyelink('Message', 'Feedback: Incorrect onset');
+                    Eyelink('Message', 'Feedback: Incorrect onset / Post-search onset');
                 end
 
                 WaitSecs(feedback_duration); % 200 ms
@@ -602,7 +597,7 @@ for run_looper = run_num:total_runs
 
                 % Eyelink message for feedback offset / post-search onset
                 if eyetracking
-                    Eyelink('Message', 'Feedback: Incorrect offset / Post-search onset');
+                    Eyelink('Message', 'Feedback: Incorrect offset / Post-search continued');
                 end
 
                 WaitSecs(post_search_duration-feedback_duration)

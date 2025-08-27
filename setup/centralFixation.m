@@ -1,4 +1,4 @@
-function [] = centralFixation(expWin, scrH, scrW, fixScreen, reqDur, timeout, radius, t, el, eye, search)
+function [] = centralFixation(expWin, scrH, scrW, fixScreen, fix, t, el, eye) %fix is the sturct with reqDur, timeout, radius
 % CENTRALFIXATION This function checks for a central fixation in an
 % eyetracking experiment. The subject has to look at a central portion of 
 % the screen for a certain amount of time to initiate a trial.
@@ -6,7 +6,7 @@ function [] = centralFixation(expWin, scrH, scrW, fixScreen, reqDur, timeout, ra
 %   reqDur = required duration of the central fixation (typically 100 ms)
 %   timeout = how long to check before jumping back to calibration screen
 %   radius = the radius around the center of the screen which counts as
-%   fixation; 32 pixels = 1�
+%   fixation; 32 pixels = ~1 degree visual angle
 %   t = trial count
 %   el = eyelink data stuff (from ELConnect)
 
@@ -19,9 +19,6 @@ function [] = centralFixation(expWin, scrH, scrW, fixScreen, reqDur, timeout, ra
         fix.Timer = 0;
         fix.held = 0;
 
-        % Start Eyetracker
-        Eyelink('StartRecording');
-        WaitSecs(0.3);
         Eyelink('Message', 'TRIALID %i ', t);
         Eyelink('Command', 'record_status_message %i', t);
         Eyelink('Message', 'fixCross');
@@ -29,7 +26,6 @@ function [] = centralFixation(expWin, scrH, scrW, fixScreen, reqDur, timeout, ra
         % Show fixScreen
         Screen('DrawTexture', expWin, fixScreen);
         Screen('flip', expWin);
-        Screen('DrawTexture', expWin, search);
 
         % While not met reqDur && not timed out && eyelink connected
         timerBegin = GetSecs();
@@ -37,6 +33,15 @@ function [] = centralFixation(expWin, scrH, scrW, fixScreen, reqDur, timeout, ra
             samp = Eyelink('NewestFloatSample');
             fix.Timer = (GetSecs() - timerBegin)*1000;
             [keyIsDown,~,keyCode] = KbCheck(-1);
+
+            % --- validity checks ---
+            if isempty(samp)
+                continue; % no sample yet, skip this loop
+            end
+            if samp.gx(eye) == el.MISSING_DATA || samp.gy(eye) == el.MISSING_DATA
+                continue; % skip invalid gaze
+            end
+
             % if looking at circle around fixScreenxc
             if sqrt((samp.gx(eye)-ctrX)^2 + (samp.gy(eye)-ctrY)^2) < radius && ~(isempty(samp))
                 % if 1st fixScreen, start timer
@@ -70,6 +75,4 @@ function [] = centralFixation(expWin, scrH, scrW, fixScreen, reqDur, timeout, ra
     
     %% drift correction
     %Eyelink('Command','online_dcorr_trigger');
-
-end
 
