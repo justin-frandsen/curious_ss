@@ -48,8 +48,6 @@ CONDITION  = 6;
 
 % Experiment identifiers
 expName      = 'curious_ss';
-sub_num      = 100;
-run_num      = 1;
 
 % Monitor
 screens      = Screen('Screens');
@@ -59,9 +57,10 @@ refresh_rate = 60;  % Hz
 % Eyetracker
 eyetracking             = true; % true = real eyetracking, false = no eyetracking
 fixationTimeThreshold   = 50;    % ms, minimum fixation duration to log
-fix.Radius              = 90;
+fix.radius              = 90;
 fix.timeout             = 5000;
 fix.reqDur              = 500;
+eye_used             = 2; % 1 = left eye, 2 = right eye, 3 = both eyes want to change this to get it from the tracker later
 
 % Feedback
 border_line_width = 30;
@@ -163,7 +162,7 @@ end
 
 %% Check if experimenter wants to proceed
 fprintf('Proceed with subject number: %d and run number: %d? (Y/N)\n', sub_num, run_num);
-proceed_response = 'y'; %input('', 's');
+proceed_response = input('', 's');
 if ~strcmpi(proceed_response, 'Y')
     error('Experiment aborted by user.');
 end
@@ -472,7 +471,7 @@ for run_looper = run_num:total_runs
         if eyetracking
             HideCursor(scrID);         % Hide mouse cursor before the next trial
             SetMouse(10, 10, scrID);   % Move the mouse to the corner -- in case some jerk has unhidden it    
-            centralFixation(w, height, width, fixation, fix, trial_looper, el, eye)
+            centralFixation(w, height, width, fixation, fix, trial_looper, el, eye_used)
         else
             % Fixation cross just drawn for when testing.
             Screen('DrawTexture', w, fixation);
@@ -617,9 +616,9 @@ for run_looper = run_num:total_runs
 
         if eyetracking
             Eyelink('Message', 'Post-search offset / ITI onset');
-            Eyelink('Message', 'TRIAL_RESULT %d ACC %d RT %.2f', trial_looper, trial_accuracy, RT);
+            Eyelink('Message', 'TRIAL_RESULT %d ACC %d RT %d', trial_looper, trial_accuracy, RT);
             Eyelink('Message', 'Trial %d end', trial_looper);
-            
+
             Eyelink('StopRecording');
             Eyelink('Command', 'set_idle_mode');  
         end
@@ -640,7 +639,7 @@ for run_looper = run_num:total_runs
 
         try
             fprintf('Receiving data file ''%s''\n', edf_file_name);
-            status = Eyelink('ReceiveFile', edfFiledf_file_nameeName, localPath, 1);
+            status = Eyelink('ReceiveFile', edf_file_name, localPath, 1);
             if status > 0
                 fprintf('ReceiveFile status %d\n', status);
             end
