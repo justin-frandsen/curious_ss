@@ -1,78 +1,102 @@
-function [] = centralFixation(expWin, scrH, scrW, fixScreen, fix, t, el, eye) %fix is the sturct with reqDur, timeout, radius
-% CENTRALFIXATION This function checks for a central fixation in an
-% eyetracking experiment. The subject has to look at a central portion of 
-% the screen for a certain amount of time to initiate a trial.
-%   fixScreen = the fixation screen in PTB
-%   reqDur = required duration of the central fixation (typically 100 ms)
-%   timeout = how long to check before jumping back to calibration screen
-%   radius = the radius around the center of the screen which counts as
-%   fixation; 32 pixels = ~1 degree visual angle
-%   t = trial count
-%   el = eyelink data stuff (from ELConnect)
+function [] = centralFixation(expWin, scrH, scrW, fixScreen, fix, t, el, eye)
+% CENTRALFIXATION Checks for central fixation before starting a trial.
+%   expWin   = PTB window pointer
+%   scrH/W   = screen height/width
+%   fixScreen= texture with fixation cross
+%   fix      = struct with fields reqDur (ms), timeout (ms), radius (pixels)
+%   t        = trial index
+%   el       = Eyelink defaults
+%   eye      = index of tracked eye
 
-    ctrX = scrW/2;
-    ctrY = scrH/2;
+ctrX = scrW/2;
+ctrY = scrH/2;
 
-    fix.finished = 0;
-    while fix.finished == 0
-        fix.Dur = 0;
-        fix.Timer = 0;
-        fix.held = 0;
+fix.finished = 0;
 
-        Eyelink('Message', 'TRIALID %i ', t);
-        Eyelink('Command', 'record_status_message %i', t);
-        Eyelink('Message', 'fixCross');
+while ~fix.finished
+    Eyelink('Message', 'TRIALID %i', t);
+    Eyelink('Command', 'record_status_message %i', t);
+    Eyelink('Message', 'fixCross');
 
-        % Show fixScreen
-        Screen('DrawTexture', expWin, fixScreen);
-        Screen('flip', expWin);
+    % Draw fixation screen
+    Screen('DrawTexture', expWin, fixScreen);
+    Screen('Flip', expWin);
 
-        % While not met reqDur && not timed out && eyelink connected
-        timerBegin = GetSecs();
-        while fix.Dur < reqDur && fix.Timer < timeout && Eyelink('IsConnected')
-            samp = Eyelink('NewestFloatSample');
-            fix.Timer = (GetSecs() - timerBegin)*1000;
-            [keyIsDown,~,keyCode] = KbCheck(-1);
+    fixSuccess = false;
+    trialStart = GetSecs;
 
-            % --- validity checks ---
-            if isempty(samp)
-                continue; % no sample yet, skip this loop
-            end
-            if samp.gx(eye) == el.MISSING_DATA || samp.gy(eye) == el.MISSING_DATA
-                continue; % skip invalid gaze
-            end
+    while (GetSecs - trialStart)*1000 < fix.timeout && Eyelink('IsConnected')
+        samp = Eyelink('NewestFloatSample');
 
-            % if looking at circle around fixScreenxc
-            if sqrt((samp.gx(eye)-ctrX)^2 + (samp.gy(eye)-ctrY)^2) < radius && ~(isempty(samp))
-                % if 1st fixScreen, start timer
-                if fix.held == 0
-                    startTime = samp.time;
-                    fix.held = 1;
-                % else, increment the time    
-                else
-                    stopTime = samp.time;
-                    fix.Dur = (stopTime - startTime);
+        % skip if no valid sample
+        if isempty(samp), WaitSecs(0.005); continue; end
+        if samp.gx(eye) == el.MISSING_DATA || samp.gy(eye) == el.MISSING_DATA
+            WaitSecs(0.005); continue;
+        end
+
+        % check if gaze is within fixation radius
+        inFix = sqrt((samp.gx(eye)-ctrX)^2 + (samp.gy(eye)-ctrY)^2) < fix.radius;
+
+        if inFix
+            fixStart = GetSecs;
+            % hold fixation loop
+            while Eyelink('IsConnected')
+                samp = Eyelink('NewestFloatSample');
+                if isempty(samp), break; end
+                x = samp.gx(eye); y = samp.gy(eye);
+                inFix = sqrt((x-ctrX)^2 + (y-ctrY)^2) < fix.radius;
+
+                % check keys
+                [keyIsDown,~,keyCode] = KbCheck(-1);
+                if keyIsDown
+                    if keyCode(KbName('ESCAPE'))
+                        sca; Eyelink('Shutdown'); error('Experiment aborted');
+                    elseif keyCode(KbName('c'))  % manual drift correction
+                        Eyelink('StopRecording');
+                        WaitSecs(0.5);
+                        EyelinkDoDriftCorrection(el);
+                        Eyelink('StartRecording');
+                        Screen('DrawTexture', expWin, fixScreen);
+                        Screen('Flip', expWin);
+                        WaitSecs(0.01);
+                        break; % restart fixation check
+                    end
                 end
-                % reset fixScreen holder
-                if keyIsDown && keyCode(KbName('c'))
+
+                % fixation held long enough
+                if inFix && (GetSecs - fixStart)*1000 >= fix.reqDur
+                    fixSuccess = true;
                     break;
                 end
-            else
-                fix.held = 0;
+
+                % small pause to reduce CPU load
+                WaitSecs(0.005);
+
+                if ~inFix
+                    break; % lost fixation before meeting reqDur
+                end
             end
         end
-        % break out of calibration loop if fixScreen held
-        if fix.Dur >= reqDur
-            fix.finished = 1;
-            % otherwise, you have a timeout and need to restart the trial
-        else
-            Eyelink('StopRecording');
-            WaitSecs(.5);
-            EyelinkDoTrackerSetup(el);
-            Screen('DrawTexture', expWin, fixScreen);
-        end
-    end
-    
-    %% drift correction
-    %Eyelink('Command','online_dcorr_trigger');
 
+        if fixSuccess
+            break;
+        end
+
+        WaitSecs(0.005); % small pause in outer loop
+    end
+
+    if fixSuccess
+        fix.finished = 1;
+    else
+        % timeout: recalibrate
+        Eyelink('StopRecording');
+        WaitSecs(0.5);
+        EyelinkDoDriftCorrection(el);
+        Eyelink('StartRecording');
+        Screen('DrawTexture', expWin, fixScreen);
+        Screen('Flip', expWin);
+        WaitSecs(0.01);
+    end
+end
+
+end

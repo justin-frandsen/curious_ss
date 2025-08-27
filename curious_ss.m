@@ -57,10 +57,10 @@ scrID        = max(screens);
 refresh_rate = 60;  % Hz
 
 % Eyetracker
-eyetracking             = false; % true = real eyetracking, false = no eyetracking
+eyetracking             = true; % true = real eyetracking, false = no eyetracking
 fixationTimeThreshold   = 50;    % ms, minimum fixation duration to log
 fix.Radius              = 90;
-fix.Timeout             = 5000;
+fix.timeout             = 5000;
 fix.reqDur              = 500;
 
 % Feedback
@@ -266,7 +266,7 @@ if eyetracking
         mkdir(edf_output_folder_name);
     end
     
-    el = setup_eyelink(w, edf_file_name);
+    el = setup_eyelink(w);
 end
 
 %% Start Experiment
@@ -477,9 +477,10 @@ for run_looper = run_num:total_runs
             SetMouse(10, 10, scrID);   % Move the mouse to the corner -- in case some jerk has unhidden it    
             centralFixation(w, height, width, fixation, fix, trial_looper, el, eye)
         else
-            % Fixation cross
+            % Fixation cross just drawn for when testing.
             Screen('DrawTexture', w, fixation);
             Screen('flip', w);
+            WaitSecs(.5)
         end
         
         % CUE DISPLAY
