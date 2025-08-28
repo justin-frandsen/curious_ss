@@ -14,11 +14,7 @@ ctrY = scrH/2;
 fix.finished = 0;
 
 while ~fix.finished
-    Eyelink('StartRecording');
-    WaitSecs(0.05);
-    Eyelink('Message', 'TRIALID %i', t);
-    Eyelink('Command', 'record_status_message %i', t);
-    Eyelink('Message', 'fixCross');
+    Eyelink('Message','FIXATION_ONSET_1');
 
     % Draw fixation screen
     Screen('DrawTexture', expWin, fixScreen);
@@ -51,7 +47,7 @@ while ~fix.finished
                 % check keys
                 [keyIsDown,~,keyCode] = KbCheck(-1);
                 if keyIsDown
-                    if keyCode(KbName('ESCAPE'))
+                    if keyCode(KbName('m'))
                         sca; Eyelink('Shutdown'); error('Experiment aborted');
                     elseif keyCode(KbName('c'))  % manual drift correction
                         Eyelink('StopRecording');

@@ -465,10 +465,10 @@ for run_looper = run_num:total_runs
         % Draw your texture into the offscreen window
         Screen('DrawTexture', cue_display, sorted_nonsided_shapes_textures(target_texture_index));
 
-        % Later: draw the offscreen window onto your main window (w)
-        Screen('DrawTexture', w, cue_display);
-
         if eyetracking
+            Eyelink('StartRecording');
+            WaitSecs(0.1); % Wait for 100 ms to allow the tracker to
+            Eyelink('Message', 'TRIALID %d', trial_looper);
             HideCursor(scrID);         % Hide mouse cursor before the next trial
             SetMouse(10, 10, scrID);   % Move the mouse to the corner -- in case some jerk has unhidden it    
             centralFixation(w, height, width, fixation, fix, trial_looper, el, eye_used)
@@ -484,7 +484,7 @@ for run_looper = run_num:total_runs
         Screen('flip', w);
 
         if eyetracking
-            Eyelink('Message', 'Cue display onset');
+            Eyelink('Message','CUE_ONSET %d', target_texture_index);
         end
 
         % Draw fixation cross
@@ -494,7 +494,7 @@ for run_looper = run_num:total_runs
         Screen('flip', w); %flip to show fixation cross again
 
         if eyetracking
-            Eyelink('Message', 'Second fixation cross onset');
+            Eyelink('Message','FIXATION_ONSET_2');
         end
 
         Screen('DrawTexture', w, search); %draw the search display
@@ -506,6 +506,7 @@ for run_looper = run_num:total_runs
         if eyetracking
             Eyelink('Message', 'SEARCH_DISPLAY_ONSET Scene %d TargetIdx %d Condition %d', ...
             scene_inds, target_texture_index, trial_condition);
+            Eyelink('Message','SYNCTIME');
         end
         % --- Wait for response or until deadline ---
         responseMade = false;
@@ -524,7 +525,7 @@ for run_looper = run_num:total_runs
                     responseMade = true;
                 
                     if eyetracking
-                        Eyelink('Message', 'RESPONSE Key %s RT %dms', response, RT);
+                        Eyelink('Message', 'RESPONSE Key %s RT %d', response, RT);
                     end
                 
                     % End trial after logging last fixation
@@ -617,7 +618,6 @@ for run_looper = run_num:total_runs
         if eyetracking
             Eyelink('Message', 'Post-search offset / ITI onset');
             Eyelink('Message', 'TRIAL_RESULT %d ACC %d RT %d', trial_looper, trial_accuracy, RT);
-            Eyelink('Message', 'Trial %d end', trial_looper);
 
             Eyelink('StopRecording');
             Eyelink('Command', 'set_idle_mode');  
