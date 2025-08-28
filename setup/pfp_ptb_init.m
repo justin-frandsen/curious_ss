@@ -1,4 +1,4 @@
-function [w, wRect]=pfp_ptb_init
+function [w, wRect, screenNumber]=pfp_ptb_init
 
 %this is a workaround for an error I get sometimes. I believe that this
 %error can cause mistakes in timing, so it is important to fix before full
@@ -29,8 +29,8 @@ if isempty(button) || strcmp(button,'Quit')
     error('User quit');
 end
 
-% Hide the mouse cursor:
-% HideCursor;
+Hide the mouse cursor:
+HideCursor;
 
 % Returns as default the mean gray value of screen:
 grayval=GrayIndex(screenNumber,grayval/255); 
@@ -41,7 +41,7 @@ grayval=GrayIndex(screenNumber,grayval/255);
 % the window. 'wRect' is a rectangle defining the size of the window.
 % See "help PsychRects" for help on such rectangles and useful helper
 % functions:
-[w, wRect]=Screen('OpenWindow',screenNumber,grayval);
+[w, wRect]=Screen('OpenWindow', screenNumber, grayval);
 
 % Set text size (Most Screen functions must be called after
 % opening an onscreen window, as they only take window handles 'w' as

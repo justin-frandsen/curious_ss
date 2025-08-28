@@ -25,8 +25,8 @@
 %   containing all matlab script variables, and a .edf file containing
 %   eyetracking data.
 %-----------------------------------------------------------------------
-%sub_num = 105;
-%run_num = 4;
+sub_num = 105;
+run_num = 1;
 
 %% CLEAR VARIABLES
 clc;
@@ -53,12 +53,10 @@ CONDITION  = 6;
 expName      = 'curious_ss';
 
 % Monitor
-screens      = Screen('Screens');
-scrID        = max(screens);
 refresh_rate = 60;  % Hz
 
 % Eyetracker
-eyetracking             = true; % true = real eyetracking, false = no eyetracking
+eyetracking             = false; % true = real eyetracking, false = no eyetracking
 fixationTimeThreshold   = 50;    % ms, minimum fixation duration to log
 fix.radius              = 90;
 fix.timeout             = 5000;
@@ -165,7 +163,7 @@ end
 
 %% Check if experimenter wants to proceed
 fprintf('Proceed with subject number: %d and run number: %d? (Y/N)\n', sub_num, run_num);
-proceed_response = input('', 's');
+proceed_response = 'Y'; %input('', 's');
 if ~strcmpi(proceed_response, 'Y')
     error('Experiment aborted by user.');
 end
@@ -209,7 +207,7 @@ if exist(fullfile(edf_output_folder_name, edf_file_name), 'file')
 end
 
 % Initilize PTB window
-[w, rect] = pfp_ptb_init; %call this function which contains all the screen initilization.
+[w, rect, scrID] = pfp_ptb_init; %call this function which contains all the screen initilization.
 [width, height] = Screen('WindowSize', scrID); %get the width and height of the screen
 % Enable alpha blending for transparency
 Screen('BlendFunction', w, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA'); %allows the .png files to be transparent
@@ -235,12 +233,6 @@ saved_positions = shape_positions.saved_positions; % Assign saved_positions for 
 % Screens
 Screen('TextSize', w, my_font_size);
 Screen('TextFont', w, my_font);
-
-bufimg =  Screen('OpenOffscreenWindow',scrID, col.bg, rect);
-Screen('TextFont', bufimg, my_font);
-Screen('TextSize', bufimg, my_font_size);
-
-blank =  Screen('OpenOffscreenWindow', scrID, col.bg, rect);
 
 % fixation cross
 fixsize = 16;
@@ -413,6 +405,12 @@ for run_looper = run_num:total_runs
         % ---- map TYPE → POSITION and draw TARGET
         target_position = possible_positions(target_type);                 % e.g., 1..4
         target_rect     = saved_positions{scene_inds, target_position};    % use POSITION!
+
+
+        if eyetracking
+            % Define AOIs
+            Eyelink('Message', '!V IAREA TARGET %d %d %d %d TargetBox', target_rect(1), target_rect(2), target_rect(3), target_rect(4));
+        end
 
         if t_directions(1) == 0
             % left target
@@ -616,21 +614,18 @@ for run_looper = run_num:total_runs
                 if eyetracking
                     Eyelink('Message', 'END_TIME SEARCH_PERIOD');
                     Eyelink('Message', 'START_TIME POST_SEARCH_PERIOD');
-                    Eyelink('Message', 'Feedback: Correct / Post-search onset');
                 end
 
                 WaitSecs(post_search_duration)
-            end
-            if eyetracking
-                Eyelink('Message', 'START_TIME POST_SEARCH_PERIOD');
             end
         end
         %draw blank ITI
         Screen('flip', w);
 
         if eyetracking
-            Eyelink('Message', 'START_TIME POST_SEARCH_PERIOD');
-            Eyelink('Message', 'TRIAL_RESULT %d ACC %d RT %d', trial_looper, trial_accuracy, RT);
+            Eyelink('Message', 'END_TIME POST_SEARCH_PERIOD');
+            Eyelink('Message', '!V TRIAL_VAR RT %d', RT);
+            Eyelink('Message', '!V TRIAL_VAR acc %d', trial_accuracy);
 
             Eyelink('StopRecording');
             Eyelink('Command', 'set_idle_mode');  
