@@ -25,6 +25,9 @@
 %   containing all matlab script variables, and a .edf file containing
 %   eyetracking data.
 %-----------------------------------------------------------------------
+%sub_num = 105;
+%run_num = 4;
+
 %% CLEAR VARIABLES
 clc;
 close all;
@@ -466,9 +469,9 @@ for run_looper = run_num:total_runs
         Screen('DrawTexture', cue_display, sorted_nonsided_shapes_textures(target_texture_index));
 
         if eyetracking
+            Eyelink('Message', 'TRIALID %d', trial_looper); % support said to put this before the recording starts
             Eyelink('StartRecording');
             WaitSecs(0.1); % Wait for 100 ms to allow the tracker to
-            Eyelink('Message', 'TRIALID %d', trial_looper);
             HideCursor(scrID);         % Hide mouse cursor before the next trial
             SetMouse(10, 10, scrID);   % Move the mouse to the corner -- in case some jerk has unhidden it    
             centralFixation(w, height, width, fixation, fix, trial_looper, el, eye_used)
@@ -504,9 +507,13 @@ for run_looper = run_num:total_runs
         stimOnsetTime = Screen('Flip', w); %this flip displays the scene with all four shapes
 
         if eyetracking
-            Eyelink('Message', 'SEARCH_DISPLAY_ONSET Scene %d TargetIdx %d Condition %d', ...
-            scene_inds, target_texture_index, trial_condition);
-            Eyelink('Message','SYNCTIME');
+            Eyelink('Message', 'START_TIME SEARCH_PERIOD');
+            Eyelink('Message', 'SEARCH_DISPLAY_ONSET Scene %d', scene_inds)
+            Eyelink('Message', 'SYNCTIME');
+            Eyelink('Message', '!V TRIAL_VAR condition %d', trial_condition);
+            Eyelink('Message', '!V TRIAL_VAR block %d', run_looper);
+            Eyelink('Message', '!V TRIAL_VAR scene %d', scene_inds);
+
         end
         % --- Wait for response or until deadline ---
         responseMade = false;
@@ -583,9 +590,10 @@ for run_looper = run_num:total_runs
                 Screen('DrawTexture', w, post_search);
                 Screen('FrameRect', w, resp_color, rect, border_line_width);
                 Screen('flip', w);
-
                 % Eyelink message for feedback onset
                 if eyetracking
+                    Eyelink('Message', 'END_TIME SEARCH_PERIOD');
+                    Eyelink('Message', 'START_TIME POST_SEARCH_PERIOD');
                     Eyelink('Message', 'Feedback: Incorrect onset / Post-search onset');
                 end
 
@@ -606,17 +614,22 @@ for run_looper = run_num:total_runs
 
                 % Eyelink message for correct feedback/post-search
                 if eyetracking
+                    Eyelink('Message', 'END_TIME SEARCH_PERIOD');
+                    Eyelink('Message', 'START_TIME POST_SEARCH_PERIOD');
                     Eyelink('Message', 'Feedback: Correct / Post-search onset');
                 end
 
                 WaitSecs(post_search_duration)
+            end
+            if eyetracking
+                Eyelink('Message', 'START_TIME POST_SEARCH_PERIOD');
             end
         end
         %draw blank ITI
         Screen('flip', w);
 
         if eyetracking
-            Eyelink('Message', 'Post-search offset / ITI onset');
+            Eyelink('Message', 'START_TIME POST_SEARCH_PERIOD');
             Eyelink('Message', 'TRIAL_RESULT %d ACC %d RT %d', trial_looper, trial_accuracy, RT);
 
             Eyelink('StopRecording');
@@ -631,11 +644,15 @@ for run_looper = run_num:total_runs
 
         Eyelink('StopRecording')
         Eyelink('Command', 'set_idle_mode'); %set tracking to idle
-        WaitSecs(0.5);
-        Eyelink('CloseFile'); %close the EDF file
+        WaitSecs(1);
+        status = Eyelink('CloseFile'); %close the EDF file
+        if status ~= 0
+            fprintf('Closing file failed: %d', status)
+        end
         
         % Full local path to save EDF file
         localPath = fullfile(edf_output_folder_name, edf_file_name);
+        WaitSecs(5);
 
         try
             fprintf('Receiving data file ''%s''\n', edf_file_name);
@@ -682,13 +699,13 @@ end
 % Show end of experiment message
 if eyetracking
     Eyelink('Message', 'EXPERIMENT COMPLETE Subject %d', sub_num);
+    Eyelink('Shutdown');
 end
+
 DrawFormattedText(w, 'Experiment Complete! Thank you for participating.', 'center', 'center', col.fg);
 Screen('Flip', w);
 WaitSecs(2); % Wait for 2 seconds before closing
-DrawFormattedText(w, 'Saving Data...', 'center', 'center');
-Screen('Flip', w);
-WaitSecs(3)% Wait for 3 seconds to simulate saving time
+
 
 pfp_ptb_cleanup; % cleanup PTB
 close all; % close all windows
