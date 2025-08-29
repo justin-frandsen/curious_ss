@@ -29,7 +29,7 @@ if isempty(button) || strcmp(button,'Quit')
     error('User quit');
 end
 
-Hide the mouse cursor:
+%Hide the mouse cursor:
 HideCursor;
 
 % Returns as default the mean gray value of screen:

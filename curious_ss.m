@@ -25,8 +25,6 @@
 %   containing all matlab script variables, and a .edf file containing
 %   eyetracking data.
 %-----------------------------------------------------------------------
-sub_num = 105;
-run_num = 1;
 
 %% CLEAR VARIABLES
 clc;
@@ -38,6 +36,8 @@ rng('shuffle'); % Resets the random # generator
 addpath(genpath('setup'));
 
 %% COLUMN NAMES FOR SCENE MATRIX
+sub_num = 105;
+run_num = 5;
 SCENE_INDS = 1;
 REP        = 2; % just used to create the randomizor matrix not used in the experiment
 RUN        = 3; % col contains the run number
@@ -352,18 +352,28 @@ for run_looper = run_num:total_runs
         possible_positions             = this_subj_this_run.all_possible_locations(trial_looper, :); % Get the possible positions for this trial
         t_directions                   = this_subj_this_run.t_directions(trial_looper, :); % Get the target directions for this trial
         target_index1                  = scene_randomizor(trial_looper, TARGET);
-        target_texture_index           = target_inds(target_index1);
-        target_association             = target_associations(target_index1); %1 = wall 2 = counter, 3 = floor.
+
+        if run_looper <= 4
+            target_texture_index       = target_inds(target_index1);
+            target_association         = target_associations(target_index1); %1 = wall 2 = counter, 3 = floor.
+        elseif run_looper > 4
+            target_texture_index       = critical_distractor_inds(target_index1); %in testing we use the critical distractor shapes as targets
+            target_association         = critical_distractor_associations(target_index1); %1 = wall 2 = counter, 3 = floor.
+        end
+        
         trial_condition                = scene_randomizor(trial_looper, CONDITION);
-        noncritical_distractors        = this_subj_this_run.this_run_distractors(trial_looper, :);
-        length_noncritical_distractors = length(noncritical_distractors);
-        noncritical_distractors        = noncritical_distractors(1:length_noncritical_distractors-1); % remove the last one which is just the run number
+        this_run_distractors           = this_subj_this_run.this_run_distractors(trial_looper, :);
+        length_this_run_distractors    = length(this_run_distractors);
+        this_trial_distractors         = noncritical_distractors(1:length_this_run_distractors-1); % remove the last one which is just the run number
 
         % get critical distractor info if in training phase
         if run_looper <= 4
             critical_distractor_index1 = scene_randomizor(trial_looper, DISTRACTOR);
             cd_texture_index = critical_distractor_inds(critical_distractor_index1);
             critical_distractor_association = critical_distractor_associations(critical_distractor_index1);
+        elseif run_looper > 4
+            cd_texture_index = NaN; % no critical distractor in testing phase
+            critical_distractor_association = NaN;
         end
 
         %% DRAW SCENE   
@@ -398,14 +408,27 @@ for run_looper = run_num:total_runs
                     error('Unexpected trial_condition value.');
             end
         else
-            % testing: target goes to the formerly critical association (if that’s your design)
-            target_type = critical_distractor_association;
+            % Testing: trial_condition chooses whether target uses its associated
+            % location or one of the other two we make this so that it is completely
+            % random instead this time though but i use the same var to ranodmize it
+            switch trial_condition
+                case 0
+                    target_type = target_association;  % use its associated type
+                case 1
+                    tmp = setdiff(types, target_association);
+                    target_type = tmp(1);
+                case 2
+                    tmp = setdiff(types, target_association);
+                    target_type = tmp(2);
+                otherwise
+                    error('Unexpected trial_condition value.');
+            end
         end
 
         % ---- map TYPE → POSITION and draw TARGET
-        target_position = possible_positions(target_type);                 % e.g., 1..4
-        target_rect     = saved_positions{scene_inds, target_position};    % use POSITION!
-
+        target_position    = possible_positions(target_type);               % e.g., 1..4
+        target_rect        = saved_positions{scene_inds, target_position};  % use POSITION!
+        remaining_positions = setdiff(possible_positions, target_position, 'stable');  % remaining positions for distractors dont sort
 
         if eyetracking
             % Define AOIs
@@ -424,7 +447,8 @@ for run_looper = run_num:total_runs
         
         % ---- draw CRITICAL DISTRACTOR only in training
         if run_looper <= 4
-            crit_pos  = possible_positions(4);                              % 4th entry encodes CD position
+            crit_pos  = possible_positions(4); % 4th entry encodes CD position
+            remaining_positions = setdiff(remaining_positions, crit_pos, 'stable'); % remove CD position from remaining positions
             crit_rect = saved_positions{scene_inds, crit_pos};
             if t_directions(4) == 0
                 % left critical distractor
@@ -436,23 +460,20 @@ for run_looper = run_num:total_runs
                 Screen('DrawTexture', post_search, sorted_right_shapes_textures(cd_texture_index), [], crit_rect);
             end
         end
-    
-        % ---- draw NON-CRITICAL DISTRACTORS at the remaining TYPEs (not positions)
-        remaining_types = setdiff(types, target_type);  % remove the *type* used by target
 
-        for k = 1:numel(remaining_types)
-            this_type = remaining_types(k);                  % one of the two leftover types
-            this_pos  = possible_positions(this_type);       % map TYPE → POSITION
+        for k = 1:numel(remaining_positions)
+            this_pos  = remaining_positions(k);       % map TYPE → POSITION
             this_rect = saved_positions{scene_inds, this_pos};
-            distractor_texture_index = noncritical_distractors(k);
+            distractor_texture_index = this_trial_distractors(k);
+            this_distarctor = noncritical_distractors(distractor_texture_index);
             if t_directions(1+k) == 0
                 % left non-critical distractor
-                Screen('DrawTexture', search, sorted_left_shapes_textures(distractor_texture_index), [], this_rect);
-                Screen('DrawTexture', post_search, sorted_left_shapes_textures(distractor_texture_index), [], this_rect);
+                Screen('DrawTexture', search, sorted_left_shapes_textures(this_distarctor), [], this_rect);
+                Screen('DrawTexture', post_search, sorted_left_shapes_textures(this_distarctor), [], this_rect);
             elseif t_directions(1+k) == 1
                 % right non-critical distractor
-                Screen('DrawTexture', search, sorted_right_shapes_textures(distractor_texture_index), [], this_rect);
-                Screen('DrawTexture', post_search, sorted_right_shapes_textures(distractor_texture_index), [], this_rect);
+                Screen('DrawTexture', search, sorted_right_shapes_textures(this_distarctor), [], this_rect);
+                Screen('DrawTexture', post_search, sorted_right_shapes_textures(this_distarctor), [], this_rect);
             end
         end
 
@@ -506,12 +527,10 @@ for run_looper = run_num:total_runs
 
         if eyetracking
             Eyelink('Message', 'START_TIME SEARCH_PERIOD');
-            Eyelink('Message', 'SEARCH_DISPLAY_ONSET Scene %d', scene_inds)
             Eyelink('Message', 'SYNCTIME');
             Eyelink('Message', '!V TRIAL_VAR condition %d', trial_condition);
             Eyelink('Message', '!V TRIAL_VAR block %d', run_looper);
             Eyelink('Message', '!V TRIAL_VAR scene %d', scene_inds);
-
         end
         % --- Wait for response or until deadline ---
         responseMade = false;
@@ -637,17 +656,14 @@ for run_looper = run_num:total_runs
     if eyetracking
         Eyelink('Message', 'Experiment end Subject %d Run %d', sub_num, run_looper);
 
-        Eyelink('StopRecording')
-        Eyelink('Command', 'set_idle_mode'); %set tracking to idle
-        WaitSecs(1);
         status = Eyelink('CloseFile'); %close the EDF file
+        WaitSecs(2);
         if status ~= 0
             fprintf('Closing file failed: %d', status)
         end
         
         % Full local path to save EDF file
         localPath = fullfile(edf_output_folder_name, edf_file_name);
-        WaitSecs(5);
 
         try
             fprintf('Receiving data file ''%s''\n', edf_file_name);

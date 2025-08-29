@@ -12,7 +12,7 @@
 %-------------------------------------------------------------------------
 
 %% CONFIGURATION
-SAVE_OUTPUT = false;  % Set to true to save output .mat file
+SAVE_OUTPUT = true;  % Set to true to save output .mat file
 
 % Column constants for scene matrix
 SCENE_ID   = 1;
@@ -86,7 +86,8 @@ for sub_num = 1:total_subs
     target_associations = [1 2 3 randi(3)];  % 4 associations (last repeated)
     target_associations = target_associations(randperm(4));  % Shuffle
 
-    critical_distractor_associations = randperm(3);  % Critical distractor mapping
+    critical_distractor_associations = [1 2 3 randi(3)];  % 4 associations (last repeated)
+    critical_distractor_associations = critical_distractor_associations(randperm(4));  % Shuffle
 
     %% Create distractor pairs for runs 1–4
     pairs = nchoosek(noncritical_distractors, 2);  % Unordered pairs
@@ -117,7 +118,7 @@ for sub_num = 1:total_subs
     % Assign run numbers to triplets (72 per run × 2 runs)
     row = 1;
     for run = 5:6
-        second_half_distractors(row:row+71, 3) = run;
+        second_half_distractors(row:row+71, 4) = run;
         row = row + 72;
     end
 
@@ -192,11 +193,10 @@ for sub_num = 1:total_subs
             end
 
             % Final shuffle
-            this_run_scene = shuffle_matrix(this_run_scene, ...
-                [SCENE_ID TARGET], [1 2]);
+            this_run_scene = shuffle_matrix(this_run_scene, [SCENE_ID TARGET], [1 2]);
 
             % Use second-half distractors
-            run_distractors = second_half_distractors(second_half_distractors(:,3) == run, :);
+            run_distractors = second_half_distractors(second_half_distractors(:,4) == run, :);
 
             all_possible_locations = zeros(72, 4);
             loc1 = [1 2];
