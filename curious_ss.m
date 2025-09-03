@@ -37,7 +37,7 @@ addpath(genpath('setup'));
 
 %% COLUMN NAMES FOR SCENE MATRIX
 sub_num = 105;
-run_num = 5;
+run_num = 1;
 SCENE_INDS = 1;
 REP        = 2; % just used to create the randomizor matrix not used in the experiment
 RUN        = 3; % col contains the run number
@@ -72,7 +72,7 @@ feedback_duration   = 0.2; % sec
 
 % Trial control
 main_runs      = 6;
-practice_runs  = 0;
+practice_runs  = 1;
 total_runs     = main_runs + practice_runs;
 total_trials   = 72;
 search_display_duration = 15; % sec
@@ -118,6 +118,7 @@ practice_scenes_folder  = 'stimuli/scenes/practice';
 nonsided_shapes         = 'stimuli/shapes/transparent_black';
 shapes_left             = 'stimuli/shapes/black_left_T';
 shapes_right            = 'stimuli/shapes/black_right_T';
+instruction_shapes       = 'stimuli/shapes/instructions';
 
 % Output formats
 bx_file_format   = 'bx_Subj%.3dRun%.2d.csv';
@@ -160,7 +161,6 @@ else
         error('Invalid run number. Please clear the workspace.');
     end
 end
-
 
 %% Check if experimenter wants to proceed
 fprintf('Proceed with subject number: %d and run number: %d? (Y/N)\n', sub_num, run_num);
@@ -228,15 +228,13 @@ total_scenes = length(scene_file_paths);
 [sorted_right_shapes_file_paths, sorted_right_shapes_textures]       = image_stimuli_import(shapes_right, '*.png', w, true);
 
 %load in shapes for instructions
-[sortedInstructionShapesFilePaths, sortedInstructionShapesTextures] = imageStimuliImport(instructionShapes, '*.png', w, true);
-
+[sorted_instruction_shapes_file_paths, sorted_instruction_shapes_textures] = image_stimuli_import(instruction_shapes, '*.png', w, true);
 
 % Load in the shape positions
 shape_positions = load('trial_structure_files/shape_positions.mat'); % Load the shape positions
 saved_positions = shape_positions.saved_positions; % Assign saved_positions for later use
 
 %% Background Screens
-
 % Screens
 Screen('TextSize', w, my_font_size);
 Screen('TextFont', w, my_font);
@@ -276,7 +274,7 @@ ACCcount = 0;
 trialcounter = 0;
 
 % show instructions
-showInstructions(w, sortedInstructionShapesTextures, key.left, key.right);
+showInstructions(w, sorted_instruction_shapes_textures, key.left, key.right);
 
 %% EXPERIMENT START
 for run_looper = run_num:total_runs
@@ -358,10 +356,10 @@ for run_looper = run_num:total_runs
         t_directions                   = this_subj_this_run.t_directions(trial_looper, :); % Get the target directions for this trial
         target_index1                  = scene_randomizor(trial_looper, TARGET);
 
-        if run_looper <= 4
+        if run_looper <= 5
             target_texture_index       = target_inds(target_index1);
             target_association         = target_associations(target_index1); %1 = wall 2 = counter, 3 = floor.
-        elseif run_looper > 4
+        elseif run_looper > 5
             target_texture_index       = critical_distractor_inds(target_index1); %in testing we use the critical distractor shapes as targets
             target_association         = critical_distractor_associations(target_index1); %1 = wall 2 = counter, 3 = floor.
         end
@@ -372,11 +370,11 @@ for run_looper = run_num:total_runs
         this_trial_distractors         = noncritical_distractors(1:length_this_run_distractors-1); % remove the last one which is just the run number
 
         % get critical distractor info if in training phase
-        if run_looper <= 4
+        if run_looper <= 5 && run_looper > 1
             critical_distractor_index1 = scene_randomizor(trial_looper, DISTRACTOR);
             cd_texture_index = critical_distractor_inds(critical_distractor_index1);
             critical_distractor_association = critical_distractor_associations(critical_distractor_index1);
-        elseif run_looper > 4
+        else
             cd_texture_index = NaN; % no critical distractor in testing phase
             critical_distractor_association = NaN;
         end
@@ -397,38 +395,21 @@ for run_looper = run_num:total_runs
         positions = [1 2 3 4];    % physical rect indices
 
         % ---- choose the target TYPE for this trial
-        if run_looper <= 4
-            % training: trial_condition chooses whether target uses its associated
-            % location or one of the other two
-            switch trial_condition
-                case 0
-                    target_type = target_association;  % use its associated type
-                case 1
-                    tmp = setdiff(types, target_association);
-                    target_type = tmp(1);
-                case 2
-                    tmp = setdiff(types, target_association);
-                    target_type = tmp(2);
-                otherwise
-                    error('Unexpected trial_condition value.');
-            end
-        else
-            % Testing: trial_condition chooses whether target uses its associated
-            % location or one of the other two we make this so that it is completely
-            % random instead this time though but i use the same var to ranodmize it
-            switch trial_condition
-                case 0
-                    target_type = target_association;  % use its associated type
-                case 1
-                    tmp = setdiff(types, target_association);
-                    target_type = tmp(1);
-                case 2
-                    tmp = setdiff(types, target_association);
-                    target_type = tmp(2);
-                otherwise
-                    error('Unexpected trial_condition value.');
-            end
+        % training: trial_condition chooses whether target uses its associated
+        % location or one of the other two
+        switch trial_condition
+            case 0
+                target_type = target_association;  % use its associated type
+            case 1
+                tmp = setdiff(types, target_association);
+                target_type = tmp(1);
+            case 2
+                tmp = setdiff(types, target_association);
+                target_type = tmp(2);
+            otherwise
+                error('Unexpected trial_condition value.');
         end
+        
 
         % ---- map TYPE → POSITION and draw TARGET
         target_position    = possible_positions(target_type);               % e.g., 1..4
@@ -451,7 +432,7 @@ for run_looper = run_num:total_runs
         crit_dist_position = []; 
         
         % ---- draw CRITICAL DISTRACTOR only in training
-        if run_looper <= 4
+        if run_looper <= 5 && run_looper > 1
             crit_pos  = possible_positions(4); % 4th entry encodes CD position
             remaining_positions = setdiff(remaining_positions, crit_pos, 'stable'); % remove CD position from remaining positions
             crit_rect = saved_positions{scene_inds, crit_pos};
@@ -618,7 +599,7 @@ for run_looper = run_num:total_runs
 
         % if incorrect give feedback (red border) for 200 ms then show post search screen for remaining time
         % if correct show post search screen for full duration
-        if run_looper <= 4
+        if run_looper <= 5 && run_looper > 1
             if trial_accuracy == 0
                 resp_color = col.red;
                 Screen('DrawTexture', w, post_search);
@@ -654,7 +635,7 @@ for run_looper = run_num:total_runs
 
                 WaitSecs(post_search_duration)
             end
-        elseif run_looper > 4
+        elseif run_looper > 4 || run_looper == 1
             if trial_accuracy == false
                 DrawFormattedText(w, 'Incorrect!', 'center', 'center', col.fg);
                 Screen('Flip', w);
@@ -668,7 +649,7 @@ for run_looper = run_num:total_runs
         Screen('flip', w);
 
         if eyetracking
-            if run_looper <= 4
+            if run_looper <= 5 && run_looper > 1
                 Eyelink('Message', 'END_TIME POST_SEARCH_PERIOD');
             end
             Eyelink('Message', '!V IAREA END');

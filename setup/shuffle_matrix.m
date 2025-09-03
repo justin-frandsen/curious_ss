@@ -81,4 +81,3 @@ function shuffled_matrix = shuffle_matrix(original_matrix, column_indices, max_r
 
     error('Failed to find a valid shuffle after %d attempts.', max_attempts);
 end
-

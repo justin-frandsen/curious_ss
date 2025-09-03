@@ -131,21 +131,46 @@ for sub_num = 1:total_subs
         run_name = sprintf('run%d', run); % this is because the first run is practice
 
         % Extract this run’s rows
-        this_run_scene = scene_randomizor(scene_randomizor(:, RUN) == run, :);
         if run == 1
             % Practice run: Randomize scenes, no distractors/conditions
             target_choice =[1 2 3 4 4 3 2 1];
-            this_run_scene = zeros(8, 6);
+            practice_run_matrix = zeros(8, 6);
             for i = 1:8
-                this_run_scene(i, SCENE_ID) = i;
-                this_run_scene(i, REP) = 0; %this doesn't matter for practice
-                this_run_scene(i, TARGET) = target_choice(i);
-                this_run_scene(i, CONDITION) = 0; %always valid for practice
-                this_run_scene(i, RUN) = 1; %practice run
-                this_run_scene(i, DISTRACTOR) = 0; %no distractors for practice
+                practice_run_matrix(i, SCENE_ID) = i;
+                practice_run_matrix(i, REP) = 0; %this doesn't matter for practice
+                practice_run_matrix(i, TARGET) = target_choice(i);
+                practice_run_matrix(i, CONDITION) = 0; %always valid for practice
+                practice_run_matrix(i, RUN) = 1; %practice run
+                practice_run_matrix(i, DISTRACTOR) = 0; %no distractors for practice
             end
 
+            numRows = size(second_half_distractors, 1);
+            randIdx = randperm(numRows, 8);  % random permutation of row indices
+            run_distractors = second_half_distractors(randIdx, :);
+
+            all_possible_locations = zeros(8, 4);
+            loc1 = [1 2];
+            loc2 = [3 4];
+            loc3 = [5 6];
+            for trial = 1:8
+                rand1 = loc1(randperm(2));
+                rand2 = loc2(randperm(2));
+                rand3 = loc3(randperm(2));
+                
+                possible_locations = [rand1(1), rand2(1), rand3(1), 0];  % first 3 are random from each group
+                
+                remaining_distractors = [...
+                                        setdiff(loc1, rand1(1)), ...
+                                        setdiff(loc2, rand2(1)), ...
+                                        setdiff(loc3, rand3(1))...
+                                        ];
+                
+                possible_locations(4) = remaining_distractors(randi(length(remaining_distractors)));  % random from remaining
+                all_possible_locations(trial, :) = possible_locations;
+            end
         elseif run <= 4 && run >= 1
+            this_run_scene = scene_randomizor(scene_randomizor(:, RUN) == run-1, :);
+
             % Assign distractors in groups of 3
             for i = 1:24
                 idx = (i-1)*3 + 1;
@@ -194,6 +219,8 @@ for sub_num = 1:total_subs
                 all_possible_locations(trial, :) = possible_locations;
             end
         elseif run > 4
+            this_run_scene = scene_randomizor(scene_randomizor(:, RUN) == run-1, :);
+
             % Runs 5–6: No distractors, just shuffle
             this_run_scene = this_run_scene(randperm(size(this_run_scene, 1)), :);
 
@@ -206,7 +233,7 @@ for sub_num = 1:total_subs
             end
 
             % Final shuffle
-            this_run_scene = shuffle_matrix(this_run_scene, [SCENE_ID TARGET], [1 2]);
+            this_run_scene = shuffle_matrix(this_run_scene, [SCENE_ID TARGET], [1 2], 10000);
 
             % Use second-half distractors
             run_distractors = second_half_distractors(second_half_distractors(:,4) == run-1, :);
@@ -235,6 +262,9 @@ for sub_num = 1:total_subs
 
         % Generate target direction matrix
         rep_count = length(this_run_scene) / size(t_directions, 1);
+        if run == 1
+            rep_count = 2;  % Practice run uses each direction once
+        end
         full_directions = repmat(t_directions, rep_count, 1);
         full_directions = full_directions(randperm(size(full_directions, 1)), :);
 
@@ -242,13 +272,17 @@ for sub_num = 1:total_subs
         run_struct.first_half_targets                = first_half_targets;
         run_struct.noncritical_distractors           = noncritical_distractors;
         run_struct.first_half_critical_distractors   = first_half_critical_distractors;
-        run_struct.scene_randomizor                  = this_run_scene;
+        if run == 1
+            run_struct.scene_randomizor = practice_run_matrix;
+        else
+            run_struct.scene_randomizor = this_run_scene;
+        end
         run_struct.t_directions                      = full_directions;
         run_struct.target_associations               = target_associations;
         run_struct.critical_distractors_associations = critical_distractor_associations;
         run_struct.this_run_distractors              = run_distractors;
         run_struct.all_possible_locations            = all_possible_locations;
-        
+
         subject_struct.(run_name) = run_struct;
     end
 
