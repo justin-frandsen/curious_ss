@@ -125,14 +125,27 @@ for sub_num = 1:total_subs
     %% Trial run loop
     current_target = 1;  % Start with target index 1
 
-    for run = 1:total_runs
+
+    for run = 1:total_runs+1
         run_struct = struct();
-        run_name = sprintf('run%d', run);
+        run_name = sprintf('run%d', run); % this is because the first run is practice
 
         % Extract this run’s rows
         this_run_scene = scene_randomizor(scene_randomizor(:, RUN) == run, :);
+        if run == 1
+            % Practice run: Randomize scenes, no distractors/conditions
+            target_choice =[1 2 3 4 4 3 2 1];
+            this_run_scene = zeros(8, 6);
+            for i = 1:8
+                this_run_scene(i, SCENE_ID) = i;
+                this_run_scene(i, REP) = 0; %this doesn't matter for practice
+                this_run_scene(i, TARGET) = target_choice(i);
+                this_run_scene(i, CONDITION) = 0; %always valid for practice
+                this_run_scene(i, RUN) = 1; %practice run
+                this_run_scene(i, DISTRACTOR) = 0; %no distractors for practice
+            end
 
-        if run <= 4
+        elseif run <= 4 && run >= 1
             % Assign distractors in groups of 3
             for i = 1:24
                 idx = (i-1)*3 + 1;
@@ -155,7 +168,7 @@ for sub_num = 1:total_subs
                 [SCENE_ID DISTRACTOR TARGET], [1 3 2], 10000);
 
             % Use first-half distractors
-            run_distractors = first_half_distractors(first_half_distractors(:,3) == run, :);
+            run_distractors = first_half_distractors(first_half_distractors(:,3) == run-1, :);
             
             all_possible_locations = zeros(72, 4);
             loc1 = [1 2];
@@ -180,7 +193,7 @@ for sub_num = 1:total_subs
                 end
                 all_possible_locations(trial, :) = possible_locations;
             end
-        else
+        elseif run > 4
             % Runs 5–6: No distractors, just shuffle
             this_run_scene = this_run_scene(randperm(size(this_run_scene, 1)), :);
 
@@ -196,7 +209,7 @@ for sub_num = 1:total_subs
             this_run_scene = shuffle_matrix(this_run_scene, [SCENE_ID TARGET], [1 2]);
 
             % Use second-half distractors
-            run_distractors = second_half_distractors(second_half_distractors(:,4) == run, :);
+            run_distractors = second_half_distractors(second_half_distractors(:,4) == run-1, :);
 
             all_possible_locations = zeros(72, 4);
             loc1 = [1 2];
@@ -235,7 +248,7 @@ for sub_num = 1:total_subs
         run_struct.critical_distractors_associations = critical_distractor_associations;
         run_struct.this_run_distractors              = run_distractors;
         run_struct.all_possible_locations            = all_possible_locations;
-
+        
         subject_struct.(run_name) = run_struct;
     end
 

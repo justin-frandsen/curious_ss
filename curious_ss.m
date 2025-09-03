@@ -113,7 +113,8 @@ edf_output_folder_name  = fullfile(data_folder, 'edf_data');
 mat_output_folder_name  = fullfile(data_folder, 'MAT_data');
 
 stimuli_folder         = 'stimuli';
-scene_folder            = 'stimuli/scenes/';
+scene_folder            = 'stimuli/scenes/main';
+practice_scenes_folder  = 'stimuli/scenes/practice';
 nonsided_shapes         = 'stimuli/shapes/transparent_black';
 shapes_left             = 'stimuli/shapes/black_left_T';
 shapes_right            = 'stimuli/shapes/black_right_T';
@@ -168,7 +169,7 @@ if ~strcmpi(proceed_response, 'Y')
     error('Experiment aborted by user.');
 end
 %% MAKE SURE data directory and its subdirectories exist
-subdirs = {'bx_data', 'edf_data', 'eye_data', 'log_files'};
+subdirs = {'bx_data', 'edf_data', 'eye_data', 'log_files', 'MAT_data'};
 
 if ~exist(data_folder, 'dir')
     [status, msg] = mkdir(data_folder);
@@ -216,6 +217,8 @@ Screen('BlendFunction', w, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA'); %allows th
 DrawFormattedText(w, 'Loading Images...', 'center', 'center');
 Screen('Flip', w);
 
+[practice_scene_file_paths, practice_scene_textures] = image_stimuli_import(practice_scenes_folder, '', w);
+
 [scene_file_paths, scene_textures] = image_stimuli_import(scene_folder, '', w);
 total_scenes = length(scene_file_paths);
 
@@ -223,6 +226,10 @@ total_scenes = length(scene_file_paths);
 [sorted_nonsided_shapes_file_paths, sorted_nonsided_shapes_textures] = image_stimuli_import(nonsided_shapes, '*.png', w, true);
 [sorted_left_shapes_file_paths, sorted_left_shapes_textures]         = image_stimuli_import(shapes_left, '*.png', w, true);
 [sorted_right_shapes_file_paths, sorted_right_shapes_textures]       = image_stimuli_import(shapes_right, '*.png', w, true);
+
+%load in shapes for instructions
+[sortedInstructionShapesFilePaths, sortedInstructionShapesTextures] = imageStimuliImport(instructionShapes, '*.png', w, true);
+
 
 % Load in the shape positions
 shape_positions = load('trial_structure_files/shape_positions.mat'); % Load the shape positions
@@ -267,6 +274,9 @@ end
 t = 0;
 ACCcount = 0;
 trialcounter = 0;
+
+% show instructions
+showInstructions(w, sortedInstructionShapesTextures, key.left, key.right);
 
 %% EXPERIMENT START
 for run_looper = run_num:total_runs
@@ -338,11 +348,6 @@ for run_looper = run_num:total_runs
         % Send run start message
         Eyelink('Message', 'Experiment start Subject %d Run %d', sub_num, run_looper);
     end
-
-    
-    
-        % This is where we will show instructions do this at the end!!!
-        %instruct_curious_ss(sub_num, run_looper, w, scrID, rect, col); % show instructions will need to change this to a function later
 
     %% Loop through trials
     for trial_looper = 1:5%total_trials
@@ -459,6 +464,11 @@ for run_looper = run_num:total_runs
                 Screen('DrawTexture', search, sorted_right_shapes_textures(cd_texture_index), [], crit_rect);
                 Screen('DrawTexture', post_search, sorted_right_shapes_textures(cd_texture_index), [], crit_rect);
             end
+
+            if eyetracking
+                % Define AOIs
+                Eyelink('Message', '!V IAREA DISTRACTOR %d %d %d %d CritDistBox', crit_rect(1), crit_rect(2), crit_rect(3), crit_rect(4));
+            end
         end
 
         for k = 1:numel(remaining_positions)
@@ -474,6 +484,11 @@ for run_looper = run_num:total_runs
                 % right non-critical distractor
                 Screen('DrawTexture', search, sorted_right_shapes_textures(this_distarctor), [], this_rect);
                 Screen('DrawTexture', post_search, sorted_right_shapes_textures(this_distarctor), [], this_rect);
+            end
+
+            if eyetracking
+                % Define AOIs
+                Eyelink('Message', '!V IAREA DISTRACTOR %d %d %d %d NonCritDistBox%d', this_rect(1), this_rect(2), this_rect(3), this_rect(4), k);
             end
         end
 
@@ -535,6 +550,8 @@ for run_looper = run_num:total_runs
         % --- Wait for response or until deadline ---
         responseMade = false;
         trialActive  = true;
+        RT = NaN; % Initialize RT as NaN
+        trial_accuracy = -1; % Initialize accuracy as -1 (no response)
 
         while trialActive && (GetSecs - stimOnsetTime) < search_display_duration
             [key_is_down, secs, key_code] = KbCheck;
@@ -562,7 +579,9 @@ for run_looper = run_num:total_runs
             trial_accuracy = 1;
         elseif t_directions(1) == 1 && response == key.right
             trial_accuracy = 1;
-        else
+        elseif t_directions(1) == 1 && response == key.left
+            trial_accuracy = 0;
+        elseif t_directions(1) == 0 && response == key.right
             trial_accuracy = 0;
         end
 
@@ -581,23 +600,21 @@ for run_looper = run_num:total_runs
             bx_trial_info(trial_looper).critical_distractor_idx         = NaN;
             bx_trial_info(trial_looper).critical_distractor_association = NaN;
         end
-        bx_trial_info(trial_looper).noncritical_distractor_idx      = noncritical_distractors;
-        bx_trial_info(trial_looper).condition                       = trial_condition;
-        bx_trial_info(trial_looper).t_direction                     = t_directions;
+        bx_trial_info(trial_looper).noncritical_distractor_idx = noncritical_distractors;
+        bx_trial_info(trial_looper).condition                  = trial_condition;
+        bx_trial_info(trial_looper).t_direction                = t_directions;
+        bx_trial_info(trial_looper).rt                         = RT;
+        bx_trial_info(trial_looper).accuracy                   = trial_accuracy; % You may want to set this based on correctness
+        
         if responseMade
-            bx_trial_info(trial_looper).response_key                = response;
-            bx_trial_info(trial_looper).rt                          = RT;
-            bx_trial_info(trial_looper).accuracy                    = trial_accuracy; % You may want to set this based on correctness
+            bx_trial_info(trial_looper).response_key           = response;
         elseif responseMade == false
-            bx_trial_info(trial_looper).response_key                = '';
-            bx_trial_info(trial_looper).rt                          = NaN;
-            bx_trial_info(trial_looper).accuracy                    = -1; % -1 for no response
+            bx_trial_info(trial_looper).response_key           = '';
         end
 
         post_search_duration = 2; % seconds
         feedback_duration = 0.2; % seconds
         post_viewing = true;
-
 
         % if incorrect give feedback (red border) for 200 ms then show post search screen for remaining time
         % if correct show post search screen for full duration
@@ -637,12 +654,24 @@ for run_looper = run_num:total_runs
 
                 WaitSecs(post_search_duration)
             end
+        elseif run_looper > 4
+            if trial_accuracy == false
+                DrawFormattedText(w, 'Incorrect!', 'center', 'center', col.fg);
+                Screen('Flip', w);
+                if eyetracking
+                    Eyelink('Message', 'END_TIME SEARCH_PERIOD');
+                end
+                WaitSecs(.5); % Wait for 2 seconds before closing
+            end
         end
         %draw blank ITI
         Screen('flip', w);
 
         if eyetracking
-            Eyelink('Message', 'END_TIME POST_SEARCH_PERIOD');
+            if run_looper <= 4
+                Eyelink('Message', 'END_TIME POST_SEARCH_PERIOD');
+            end
+            Eyelink('Message', '!V IAREA END');
             Eyelink('Message', '!V TRIAL_VAR RT %d', RT);
             Eyelink('Message', '!V TRIAL_VAR acc %d', trial_accuracy);
 
@@ -653,6 +682,7 @@ for run_looper = run_num:total_runs
     end
 
     %% END OF RUN
+    %% SAVE EYETRACKING DATA
     if eyetracking
         Eyelink('Message', 'Experiment end Subject %d Run %d', sub_num, run_looper);
 
@@ -679,31 +709,34 @@ for run_looper = run_num:total_runs
         end
     end
 
-    text = sprintf('Run %d/%d complete!', run_looper, total_runs);
-    DrawFormattedText(w, text, 'center', 'center');
-    Screen('Flip', w);
-    WaitSecs(2);
-
+    %% SAVE BX DATA
     % log session info
     sessionEnd = now;
     log_session_info(sub_num, run_looper, total_trials, sessionStart, sessionEnd, logFile, eyetracking, edf_file_name);
-
+    
     % save trial data to CSV
     trialTable = struct2table(bx_trial_info);
     % Define filenames with formatting
     csv_filename = sprintf('Subj%dRun%02d.csv', sub_num, run_looper);
     MAT_filename = sprintf('Subj%dRun%02d.mat', sub_num, run_looper);
-
+    
     % Combine with folder
     csv_filename = fullfile(bx_output_folder_name, csv_filename);
     MAT_filename = fullfile(mat_output_folder_name, MAT_filename);
-
-
+    
+    %write files
     writetable(trialTable, csv_filename);
     fprintf('[INFO] Saved behavioral data: %s\n', csv_filename);
-
+    
     save(MAT_filename); % Save as .mat file
     fprintf('[INFO] Full workspace saved: %s\n', MAT_filename);
+
+    %% END OF RUN MESSAGE
+    text = sprintf('Run %d of %d complete!\n\nPress SPACEBAR to continue.', ...
+                run_looper, total_runs);
+    DrawFormattedText(w, text, 'center', 'center', col.fg);
+    Screen('Flip', w);
+    KbWait([], 2);   % waits for spacebar (or any key if you don’t filter)
 end
 
 %% END EXPERIMENT
@@ -719,6 +752,6 @@ WaitSecs(2); % Wait for 2 seconds before closing
 
 
 pfp_ptb_cleanup; % cleanup PTB
-close all; % close all windows
-clear all; % clear all variables
+%close all; % close all windows
+%clear all; % clear all variables
 sca; % close PTB
