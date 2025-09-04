@@ -10,8 +10,11 @@ function [] = centralFixation(expWin, scrH, scrW, fixScreen, fix, t, el, eye)
 
 ctrX = scrW/2;
 ctrY = scrH/2;
-
+len  = 16;  % half-length of cross arms in pixels
+col  = 15;  % white (0=black, 15=white, 7=gray)
 fix.finished = 0;
+Eyelink('command', 'draw_line %d %d %d %d %d', ctrX-len, ctrY, ctrX+len, ctrY, col); % horizontal
+Eyelink('command', 'draw_line %d %d %d %d %d', ctrX, ctrY-len, ctrX, ctrY+len, col); % vertical
 
 while ~fix.finished
     Eyelink('Message','FIXATION_ONSET_1');
@@ -25,7 +28,7 @@ while ~fix.finished
 
     while (GetSecs - trialStart)*1000 < fix.timeout && Eyelink('IsConnected')
         samp = Eyelink('NewestFloatSample');
-
+        
         % skip if no valid sample
         if isempty(samp), WaitSecs(0.005); continue; end
         if samp.gx(eye) == el.MISSING_DATA || samp.gy(eye) == el.MISSING_DATA

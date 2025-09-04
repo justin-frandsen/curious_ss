@@ -30,7 +30,7 @@ function showInstructions(w, sortedInstructionShapesTextures, leftKey, rightKey)
     };
 
     % Left margin for text
-    leftMargin = 450;
+    leftMargin = 300;
 
     % Loop through instruction pages
     for iPage = 1:numel(instructionPages)

@@ -126,48 +126,9 @@ eye_file_format  = 'fixation_data_subj_%.3d_run_%.3d.csv';
 edf_file_format  = 'S%.3dR%.1d.edf';
 MAT_file_format  = 'subj%.3d_run%.2d.mat';
 
-%% GET SUBJECT NUMBER AND RUN NUMBER AND CHECK IF THEY ARE VALID/EXIST
-% Check if sub_num is defined, if not prompt user for input
-if ~exist('sub_num', 'var')
-    while true
-        sub_num = input('Enter subject number: ');
-        if ~isempty(sub_num) && isnumeric(sub_num) && sub_num > 0
-            break;
-        else
-            disp('Invalid subject number. Please enter a positive integer.');
-        end
-    end
-else
-    % If sub_num is already defined, ensure it is a positive integer
-    if ~isnumeric(sub_num) || any(sub_num <= 0)
-        error('Invalid subject number. Please clear the workspace.');
-    end
-end
+%% GET SUBJECT INFO
+[sub_num, run_num, experimenter_initials] = experiment_setup();
 
-% Check if run_num is defined, if not prompt user for input
-if ~exist('run_num', 'var')
-    while true
-        fprintf('Enter run number: ');
-        run_num = input('');
-        if ~isempty(run_num) && isnumeric(run_num) && run_num > 0
-            break;
-        else
-            disp('Invalid run number. Please enter a positive integer.');
-        end
-    end
-else
-    % If run_num is already defined, ensure it is a positive integer
-    if ~isnumeric(run_num) || run_num <= 0
-        error('Invalid run number. Please clear the workspace.');
-    end
-end
-
-%% Check if experimenter wants to proceed
-fprintf('Proceed with subject number: %d and run number: %d? (Y/N)\n', sub_num, run_num);
-proceed_response = 'Y'; %input('', 's');
-if ~strcmpi(proceed_response, 'Y')
-    error('Experiment aborted by user.');
-end
 %% MAKE SURE data directory and its subdirectories exist
 subdirs = {'bx_data', 'edf_data', 'eye_data', 'log_files', 'MAT_data'};
 
@@ -290,27 +251,43 @@ for run_looper = run_num:total_runs
 
     %% INITIALIZE BX STRUCT
     % Preallocate structure for all trials
+    if run_looper == 1
+        phase = 'practice';
+    elseif run_looper > 1 && run_looper <= 5
+        phase = 'training';
+    elseif run_looper > 5
+        phase = 'testing';
+    end
+
     bx_trial_info(1:total_trials) = struct( ...
-        'sub_num', sub_num, ...
-        'run_num', run_looper, ...
-        'phase', phase, ...
-        'trial_num', [], ...
-        'scene_idx', [], ...
-        'target_shape_idx', [], ...
-        'target_shape_association', [], ...
-        'critical_distractor_idx', [], ...
-        'critical_distractor_association', [], ...
-        'noncritical_distractor_idx', [], ...
-        'condition', [], ...
-        't_direction', [], ...
-        'response_key', '', ...
-        'rt', [], ...
-        'accuracy', [], ...
-        'trial_onset', [], ...
-        'trial_offset', [], ...
-        'response_clock_time', [], ...
-        'timestamp', '' ...
+        'sub_num', sub_num, ...                      % subject ID
+        'run_num', run_looper, ...                   % run number
+        'phase', phase, ...                          % training/testing/etc
+        'trial_num', [], ...                         % trial index within run
+        'scene_idx', [], ...                         % scene index (numerical)
+        'scene_file', '', ...                        % scene filename (traceability)
+        'target_shape_idx', [], ...                  % target texture index
+        'target_shape_association', [], ...          % associated location/condition
+        'target_position', [], ...                   % target position (grid index)
+        'target_rect', [], ...                       % target coordinates [x1 y1 x2 y2]
+        'critical_distractor_idx', [], ...           % critical distractor texture index
+        'critical_distractor_association', [], ...   % critical distractor association
+        'critical_distractor_rect', [], ...          % critical distractor coords
+        'noncritical_distractor_idx', [], ...        % non-critical distractors (indices)
+        'noncritical_distractor_rects', [], ...      % non-critical distractors (coords)
+        'condition', [], ...                         % condition code
+        't_direction', [], ...                       % orientation of T
+        'response_key', '', ...                      % key pressed
+        'response_made', [], ...                     % flag: 1=response, 0=miss
+        'rt', [], ...                                % response time (sec)
+        'accuracy', [], ...                          % 1=correct, 0=incorrect
+        'trial_onset', [], ...                       % stim onset (absolute)
+        'trial_onset_rel', [], ...                   % stim onset relative to run start
+        'trial_offset', [], ...                      % stim offset (absolute)
+        'response_clock_time', [], ...               % time of response key
+        'timestamp', '' ...                          % optional formatted datetime
     );
+
 
     fixationCounter = 0;
     currentFixationRect = 0;
@@ -329,7 +306,7 @@ for run_looper = run_num:total_runs
     
     if eyetracking
         % Create unique EDF filename for this run
-        edf_file_name = sprintf('S%.3dR%.1d.edf', sub_num, run_looper);
+        edf_file_name = sprintf('CSS%.3dR%.1d.edf', sub_num, run_looper);
         
         % Open EDF file on Eyelink computer
         i = Eyelink('OpenFile', edf_file_name);
@@ -348,7 +325,17 @@ for run_looper = run_num:total_runs
     end
 
     %% Loop through trials
-    for trial_looper = 1:5%total_trials
+    if run_num == 1
+        total_trials = 8;
+    elseif run_looper > 1
+        total_trials = 72;
+    end
+
+    for trial_looper = 1:total_trials
+        if eyetracking
+            Eyelink('command', 'clear_screen 0'); % optional: clear tracker display
+        end
+
         response = -1; % set response to -1 (missing) at start of each trial
         %% GET TRIAL VARIABLES
         scene_inds                     = scene_randomizor(trial_looper, SCENE_INDS); % Get the scene index for this trial
@@ -418,6 +405,7 @@ for run_looper = run_num:total_runs
 
         if eyetracking
             % Define AOIs
+            Eyelink('command', 'draw_box %d %d %d %d %d', target_rect(1), target_rect(2), target_rect(3), target_rect(4), 15); % Target in white
             Eyelink('Message', '!V IAREA TARGET %d %d %d %d TargetBox', target_rect(1), target_rect(2), target_rect(3), target_rect(4));
         end
 
@@ -448,6 +436,7 @@ for run_looper = run_num:total_runs
 
             if eyetracking
                 % Define AOIs
+                Eyelink('command', 'draw_box %d %d %d %d %d', crit_rect(1),   crit_rect(2),   crit_rect(3),   crit_rect(4),   7);  % Critical distractor in gray
                 Eyelink('Message', '!V IAREA DISTRACTOR %d %d %d %d CritDistBox', crit_rect(1), crit_rect(2), crit_rect(3), crit_rect(4));
             end
         end
@@ -470,6 +459,7 @@ for run_looper = run_num:total_runs
             if eyetracking
                 % Define AOIs
                 Eyelink('Message', '!V IAREA DISTRACTOR %d %d %d %d NonCritDistBox%d', this_rect(1), this_rect(2), this_rect(3), this_rect(4), k);
+                Eyelink('command', 'draw_box %d %d %d %d %d', this_rect(1), this_rect(2), this_rect(3), this_rect(4), 3);  % Non-critical distractor in darker gray
             end
         end
 
@@ -567,33 +557,61 @@ for run_looper = run_num:total_runs
         end
 
         %% LOG OUTPUT VARIABLES
-        bx_trial_info(trial_looper).trial_num                       = trial_looper;
-        bx_trial_info(trial_looper).trial_onset                     = stimOnsetTime;
-        bx_trial_info(trial_looper).trial_offset                    = GetSecs();
-        bx_trial_info(trial_looper).response_clock_time             = secs;
-        bx_trial_info(trial_looper).scene_idx                       = scene_inds;
-        bx_trial_info(trial_looper).target_shape_idx                = target_texture_index;
-        bx_trial_info(trial_looper).target_shape_association        = target_association;
+        %% LOG OUTPUT VARIABLES
+        bx_trial_info(trial_looper).trial_num                = trial_looper;
+        bx_trial_info(trial_looper).trial_onset              = stimOnsetTime;
+        bx_trial_info(trial_looper).trial_onset_rel          = stimOnsetTime - runStartTime;
+        bx_trial_info(trial_looper).trial_offset             = GetSecs();
+        bx_trial_info(trial_looper).response_clock_time      = secs;
+
+        % Subject & run info (already set in initialization, but safe to overwrite)
+        bx_trial_info(trial_looper).sub_num                  = sub_num;
+        bx_trial_info(trial_looper).run_num                  = run_looper;
+        bx_trial_info(trial_looper).phase                    = phase;
+
+        % Scene info
+        bx_trial_info(trial_looper).scene_idx                = scene_inds;
+        bx_trial_info(trial_looper).scene_file               = scene_file_list{scene_inds};
+
+        % Target info
+        bx_trial_info(trial_looper).target_shape_idx         = target_texture_index;
+        bx_trial_info(trial_looper).target_shape_association = target_association;
+        bx_trial_info(trial_looper).target_position          = target_position;
+        bx_trial_info(trial_looper).target_rect              = target_rect;
+        
+        % Distractors
         if run_looper <= 4
             bx_trial_info(trial_looper).critical_distractor_idx         = cd_texture_index;
             bx_trial_info(trial_looper).critical_distractor_association = critical_distractor_association;
-        elseif run_looper > 4
+            bx_trial_info(trial_looper).critical_distractor_rect        = crit_rect;
+        else
             bx_trial_info(trial_looper).critical_distractor_idx         = NaN;
             bx_trial_info(trial_looper).critical_distractor_association = NaN;
-        end
-        bx_trial_info(trial_looper).noncritical_distractor_idx = noncritical_distractors;
-        bx_trial_info(trial_looper).condition                  = trial_condition;
-        bx_trial_info(trial_looper).t_direction                = t_directions;
-        bx_trial_info(trial_looper).rt                         = RT;
-        bx_trial_info(trial_looper).accuracy                   = trial_accuracy; % You may want to set this based on correctness
-        
-        if responseMade
-            bx_trial_info(trial_looper).response_key           = response;
-        elseif responseMade == false
-            bx_trial_info(trial_looper).response_key           = '';
+            bx_trial_info(trial_looper).critical_distractor_rect        = [];
         end
 
-        post_search_duration = 2; % seconds
+        bx_trial_info(trial_looper).noncritical_distractor_idx   = noncritical_distractors;
+        bx_trial_info(trial_looper).noncritical_distractor_rects = noncrit_rects;
+
+        % Condition / stimulus info
+        bx_trial_info(trial_looper).condition   = trial_condition;
+        bx_trial_info(trial_looper).t_direction = t_directions(1);
+
+        % Response
+        bx_trial_info(trial_looper).rt            = RT;
+        bx_trial_info(trial_looper).accuracy      = trial_accuracy;
+        bx_trial_info(trial_looper).response_made = responseMade;
+        if responseMade
+            bx_trial_info(trial_looper).response_key = response;
+        else
+            bx_trial_info(trial_looper).response_key = '';
+        end
+
+        % Timestamp (human-readable string, e.g., for debugging logs)
+        bx_trial_info(trial_looper).timestamp = datestr(now, 'yyyy-mm-dd HH:MM:SS.FFF');
+
+
+        post_search_duration = .5; % seconds
         feedback_duration = 0.2; % seconds
         post_viewing = true;
 
@@ -729,8 +747,7 @@ end
 
 DrawFormattedText(w, 'Experiment Complete! Thank you for participating.', 'center', 'center', col.fg);
 Screen('Flip', w);
-WaitSecs(2); % Wait for 2 seconds before closing
-
+KbWait([], 2);   % wait for spacebar (or any key if you don’t filter)
 
 pfp_ptb_cleanup; % cleanup PTB
 %close all; % close all windows
