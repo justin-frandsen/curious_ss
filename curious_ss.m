@@ -36,8 +36,6 @@ rng('shuffle'); % Resets the random # generator
 addpath(genpath('setup'));
 
 %% COLUMN NAMES FOR SCENE MATRIX
-sub_num = 105;
-run_num = 1;
 SCENE_INDS = 1;
 REP        = 2; % just used to create the randomizor matrix not used in the experiment
 RUN        = 3; % col contains the run number
@@ -56,7 +54,7 @@ expName      = 'curious_ss';
 refresh_rate = 60;  % Hz
 
 % Eyetracker
-eyetracking             = false; % true = real eyetracking, false = no eyetracking
+eyetracking             = true; % true = real eyetracking, false = no eyetracking
 fixationTimeThreshold   = 50;    % ms, minimum fixation duration to log
 fix.radius              = 90;
 fix.timeout             = 5000;
@@ -282,7 +280,6 @@ for run_looper = run_num:total_runs
         'rt', [], ...                                % response time (sec)
         'accuracy', [], ...                          % 1=correct, 0=incorrect
         'trial_onset', [], ...                       % stim onset (absolute)
-        'trial_onset_rel', [], ...                   % stim onset relative to run start
         'trial_offset', [], ...                      % stim offset (absolute)
         'response_clock_time', [], ...               % time of response key
         'timestamp', '' ...                          % optional formatted datetime
@@ -305,15 +302,20 @@ for run_looper = run_num:total_runs
 
     
     if eyetracking
+        % Ensure tracker is connected
+        if ~Eyelink('IsConnected')
+            error('Eyelink not connected!');
+        end
+        
         % Create unique EDF filename for this run
         edf_file_name = sprintf('CSS%.3dR%.1d.edf', sub_num, run_looper);
-        
+
         % Open EDF file on Eyelink computer
         i = Eyelink('OpenFile', edf_file_name);
         if i ~= 0
             fprintf('Cannot create EDF file ''%s''.\n', edf_file_name);
             Eyelink('Shutdown');
-            Screen('CloseAll');
+            pfp_ptb_cleanup
             error('EDF file creation failed');
         end
     
@@ -405,8 +407,8 @@ for run_looper = run_num:total_runs
 
         if eyetracking
             % Define AOIs
-            Eyelink('command', 'draw_box %d %d %d %d %d', target_rect(1), target_rect(2), target_rect(3), target_rect(4), 15); % Target in white
-            Eyelink('Message', '!V IAREA TARGET %d %d %d %d TargetBox', target_rect(1), target_rect(2), target_rect(3), target_rect(4));
+            Eyelink('command', 'draw_box %d %d %d %d %d', ceil(target_rect(1)), ceil(target_rect(2)), ceil(target_rect(3)), ceil(target_rect(4)), 15); % Target in white
+            Eyelink('Message', '!V IAREA TARGET %d %d %d %d TargetBox', ceil(target_rect(1)), ceil(target_rect(2)), ceil(target_rect(3)), ceil(target_rect(4)));
         end
 
         if t_directions(1) == 0
@@ -436,8 +438,8 @@ for run_looper = run_num:total_runs
 
             if eyetracking
                 % Define AOIs
-                Eyelink('command', 'draw_box %d %d %d %d %d', crit_rect(1),   crit_rect(2),   crit_rect(3),   crit_rect(4),   7);  % Critical distractor in gray
-                Eyelink('Message', '!V IAREA DISTRACTOR %d %d %d %d CritDistBox', crit_rect(1), crit_rect(2), crit_rect(3), crit_rect(4));
+                Eyelink('command', 'draw_box %d %d %d %d %d', ceil(crit_rect(1)), ceil(crit_rect(2)), ceil(crit_rect(3)), ceil(crit_rect(4)), 7);  % Critical distractor in gray
+                Eyelink('Message', '!V IAREA DISTRACTOR %d %d %d %d CritDistBox', ceil(crit_rect(1)), ceil(crit_rect(2)), ceil(crit_rect(3)), ceil(crit_rect(4)));
             end
         end
 
@@ -458,8 +460,8 @@ for run_looper = run_num:total_runs
 
             if eyetracking
                 % Define AOIs
-                Eyelink('Message', '!V IAREA DISTRACTOR %d %d %d %d NonCritDistBox%d', this_rect(1), this_rect(2), this_rect(3), this_rect(4), k);
-                Eyelink('command', 'draw_box %d %d %d %d %d', this_rect(1), this_rect(2), this_rect(3), this_rect(4), 3);  % Non-critical distractor in darker gray
+                Eyelink('Message', '!V IAREA DISTRACTOR %d %d %d %d NonCritDistBox%d', ceil(this_rect(1)), ceil(this_rect(2)), ceil(this_rect(3)), ceil(this_rect(4)), k);
+                Eyelink('command', 'draw_box %d %d %d %d %d', ceil(this_rect(1)), ceil(this_rect(2)), ceil(this_rect(3)), ceil(this_rect(4)), 3);  % Non-critical distractor in darker gray
             end
         end
 
@@ -560,7 +562,6 @@ for run_looper = run_num:total_runs
         %% LOG OUTPUT VARIABLES
         bx_trial_info(trial_looper).trial_num                = trial_looper;
         bx_trial_info(trial_looper).trial_onset              = stimOnsetTime;
-        bx_trial_info(trial_looper).trial_onset_rel          = stimOnsetTime - runStartTime;
         bx_trial_info(trial_looper).trial_offset             = GetSecs();
         bx_trial_info(trial_looper).response_clock_time      = secs;
 
@@ -571,7 +572,7 @@ for run_looper = run_num:total_runs
 
         % Scene info
         bx_trial_info(trial_looper).scene_idx                = scene_inds;
-        bx_trial_info(trial_looper).scene_file               = scene_file_list{scene_inds};
+        bx_trial_info(trial_looper).scene_file               = scene_file_paths{scene_inds};
 
         % Target info
         bx_trial_info(trial_looper).target_shape_idx         = target_texture_index;
@@ -580,7 +581,7 @@ for run_looper = run_num:total_runs
         bx_trial_info(trial_looper).target_rect              = target_rect;
         
         % Distractors
-        if run_looper <= 4
+        if run_looper <= 5 && run_looper > 1
             bx_trial_info(trial_looper).critical_distractor_idx         = cd_texture_index;
             bx_trial_info(trial_looper).critical_distractor_association = critical_distractor_association;
             bx_trial_info(trial_looper).critical_distractor_rect        = crit_rect;
@@ -590,8 +591,8 @@ for run_looper = run_num:total_runs
             bx_trial_info(trial_looper).critical_distractor_rect        = [];
         end
 
-        bx_trial_info(trial_looper).noncritical_distractor_idx   = noncritical_distractors;
-        bx_trial_info(trial_looper).noncritical_distractor_rects = noncrit_rects;
+        %bx_trial_info(trial_looper).noncritical_distractor_idx   = noncritical_distractors;
+        %bx_trial_info(trial_looper).noncritical_distractor_rects = noncrit_rects;
 
         % Condition / stimulus info
         bx_trial_info(trial_looper).condition   = trial_condition;
@@ -675,7 +676,6 @@ for run_looper = run_num:total_runs
             Eyelink('Message', '!V TRIAL_VAR acc %d', trial_accuracy);
 
             Eyelink('StopRecording');
-            Eyelink('Command', 'set_idle_mode');  
         end
         WaitSecs(.5); % 500 ms ITI
     end
@@ -684,27 +684,33 @@ for run_looper = run_num:total_runs
     %% SAVE EYETRACKING DATA
     if eyetracking
         Eyelink('Message', 'Experiment end Subject %d Run %d', sub_num, run_looper);
-
+        % Go idle and close file
+        Eyelink('Command', 'set_idle_mode');
+        WaitSecs(0.5);
         status = Eyelink('CloseFile'); %close the EDF file
-        WaitSecs(2);
         if status ~= 0
-            fprintf('Closing file failed: %d', status)
+            fprintf('CloseFile failed with status %d\n', status);
         end
         
+        % Wait a bit longer for safety
+        WaitSecs(2);
+
         % Full local path to save EDF file
         localPath = fullfile(edf_output_folder_name, edf_file_name);
 
-        try
-            fprintf('Receiving data file ''%s''\n', edf_file_name);
-            status = Eyelink('ReceiveFile', edf_file_name, localPath, 1);
-            if status > 0
-                fprintf('ReceiveFile status %d\n', status);
+        maxTries = 3;
+        for attempt = 1:maxTries
+            try
+                status = Eyelink('ReceiveFile', edf_file_name, localPath, 1);
+                if status > 0 && exist(localPath, 'file')
+                    fprintf('EDF transfer succeeded on attempt %d\n', attempt);
+                    break;
+                else
+                    warning('EDF transfer attempt %d failed, retrying...\n', attempt);
+                end
+            catch
+                warning('Error during ReceiveFile attempt %d\n', attempt);
             end
-            if 2 == exist(edf_file_name, 'file')
-                fprintf('Data file ''%s'' can be found in ''%s''\n', edf_file_name, pwd);
-            end
-        catch
-            fprintf('Problem receiving data file ''%s''\n', edf_file_name);
         end
     end
 
