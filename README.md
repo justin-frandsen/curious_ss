@@ -16,42 +16,42 @@ Participants are given a visual search task to search for a previously cued targ
 
 
 ## Folder Structure
-.
-├── .gitignore              # Git ignore rules
-├── LICENSE                 # License file
-├── README.md               # Project documentation
-├── curious_ss.m            # Main experiment script
+├── .gitignore # Git ignore rules
+├── LICENSE # License file
+├── README.md # Project documentation
+├── curious_ss.m # Main experiment script
 │
-├── /data/                  # Experimental output data (gitignored)
+├── /data/ # Experimental output data (gitignored)
 │
-├── /setup/                 # Setup files and configuration scripts
-│   ├── centralFixation.m
-│   ├── experiment_setup.m
-│   ├── image_stimuli_import.m
-│   ├── instruct_curious_ss.m
-│   ├── log_session_info.m
-│   ├── pfp_ptb_cleanup.m
-│   ├── pfp_ptb_init.m
-│   ├── practice.m
-│   ├── randomizor_curious.m
-│   ├── screenshot.m
-│   ├── setup_eyelink.m
-│   ├── showInstructions.m
-│   ├── shuffle_matrix.m
-│   └── /location_scripts/  # Scripts for stimulus/shape positioning
-│       ├── location_overlap_checker_css.m
-│       ├── shape_position_checker_css.m
-│       └── shape_position_finder_css.m
+├── /setup/ # Setup files and configuration scripts
+│ ├── centralFixation.m
+│ ├── experiment_setup.m
+│ ├── image_stimuli_import.m
+│ ├── instruct_curious_ss.m
+│ ├── log_session_info.m
+│ ├── pfp_ptb_cleanup.m
+│ ├── pfp_ptb_init.m
+│ ├── practice.m
+│ ├── randomizor_curious.m
+│ ├── screenshot.m
+│ ├── setup_eyelink.m
+│ ├── showInstructions.m
+│ ├── shuffle_matrix.m
+│ └── /location_scripts/ # Scripts for stimulus/shape positioning
+│ ├── location_overlap_checker_css.m
+│ ├── shape_position_checker_css.m
+│ └── shape_position_finder_css.m
 │
-├── /Stimuli/               # Stimuli files (images, shapes, etc.)
-│   ├── /scenes/
-│   │   ├── /main/          # Main experiment scene stimuli
-│   │   └── /practice/      # Practice scene stimuli
-│   └── /shapes/            # Shape stimuli (containes subfolders of different shape types for different purposes)
+├── /Stimuli/ # Stimuli files (images, shapes, etc.)
+│ ├── /scenes/
+│ │ ├── /main/ # Main experiment scene stimuli
+│ │ └── /practice/ # Practice scene stimuli
+│ └── /shapes/ # Shape stimuli
+│ └── ... # (subfolders for different shape types/purposes)
 │
 └── /trial_structure_files/ # Generated trial structure files
-    ├── randomizor.mat
-    └── shape_positions.mat
+├── randomizor.mat
+└── shape_positions.mat
 
 ## Getting Started
 
