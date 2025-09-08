@@ -144,6 +144,9 @@ for sub_num = 1:total_subs
                 practice_run_matrix(i, DISTRACTOR) = 0; %no distractors for practice
             end
 
+            practice_run_matrix = shuffle_matrix(practice_run_matrix, ...
+                [SCENE_ID TARGET], [1 1], 10000);
+
             numRows = size(second_half_distractors, 1);
             randIdx = randperm(numRows, 8);  % random permutation of row indices
             run_distractors = second_half_distractors(randIdx, :);

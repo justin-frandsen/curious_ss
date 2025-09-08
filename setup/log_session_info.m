@@ -1,4 +1,4 @@
-function log_session_info(subjectID, runNum, totalTrials, startTime, endTime, logFilePath, eyetracking, edfFileName)
+function log_session_info(subjectID, runNum, experimenter_initials, totalTrials, startTime, endTime, logFilePath, eyetracking, edfFileName)
 % log_session_info
 % Logs basic session metadata to a plain .txt log file
 %
@@ -35,6 +35,7 @@ function log_session_info(subjectID, runNum, totalTrials, startTime, endTime, lo
     fprintf(fid, 'Subject ID: %s\n', num2str(subjectID));
     fprintf(fid, 'Run Number: %s\n', num2str(runNum));
     fprintf(fid, 'Date: %s\n', startStr(1:10));
+    fprintf(fid, 'Experimenter: %s\n', experimenter_initials);
     fprintf(fid, 'Session Start: %s\n', startStr(12:end));
     fprintf(fid, 'Session End:   %s\n', endStr(12:end));
     fprintf(fid, 'Total Trials:  %d\n', totalTrials);

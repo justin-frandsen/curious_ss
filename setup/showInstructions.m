@@ -14,9 +14,9 @@ function showInstructions(w, sortedInstructionShapesTextures, leftKey, rightKey)
     % Define pages of instructions
     instructionPages = {
         sprintf(['Welcome to the experiment.\n\n' ...
-            'On each trial, you will be shown a TARGET shape. Afterward, you will ' ...
-            'search for this shape within a scene that contains several shapes.\n\n' ...
-            'Every shape will contain a sideways "T". Your task is to report the ' ...
+            'On each trial, you will be shown a TARGET shape. Afterward,\nyou will' ...
+            ' search for this shape within a scene that contains several\nshapes.zx'...
+            ' Every shape will contain a sideways "T". Your task is to\nreport the ' ...
             'orientation of the T inside the TARGET shape only.\n\n' ...
             'Press SPACEBAR to continue.']);
 
@@ -30,13 +30,13 @@ function showInstructions(w, sortedInstructionShapesTextures, leftKey, rightKey)
     };
 
     % Left margin for text
-    leftMargin = 300;
+    leftMargin = [50, 300, 300];
 
     % Loop through instruction pages
     for iPage = 1:numel(instructionPages)
 
         % Draw instruction text
-        DrawFormattedText(w, instructionPages{iPage}, leftMargin, 'center');
+        DrawFormattedText(w, instructionPages{iPage}, leftMargin(iPage), 'center');
 
         % Show example shapes on the correct pages
         if iPage == 2

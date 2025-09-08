@@ -54,7 +54,7 @@ expName      = 'curious_ss';
 refresh_rate = 60;  % Hz
 
 % Eyetracker
-eyetracking             = true; % true = real eyetracking, false = no eyetracking
+eyetracking             = false; % true = real eyetracking, false = no eyetracking
 fixationTimeThreshold   = 50;    % ms, minimum fixation duration to log
 fix.radius              = 90;
 fix.timeout             = 5000;
@@ -408,7 +408,7 @@ for run_looper = run_num:total_runs
         if eyetracking
             % Define AOIs
             Eyelink('command', 'draw_box %d %d %d %d %d', ceil(target_rect(1)), ceil(target_rect(2)), ceil(target_rect(3)), ceil(target_rect(4)), 15); % Target in white
-            Eyelink('Message', '!V IAREA TARGET %d %d %d %d TargetBox', ceil(target_rect(1)), ceil(target_rect(2)), ceil(target_rect(3)), ceil(target_rect(4)));
+            Eyelink('Message', '!V IAREA RECTANGLE %d %d %d %d TargetBox', ceil(target_rect(1)), ceil(target_rect(2)), ceil(target_rect(3)), ceil(target_rect(4)));
         end
 
         if t_directions(1) == 0
@@ -439,7 +439,7 @@ for run_looper = run_num:total_runs
             if eyetracking
                 % Define AOIs
                 Eyelink('command', 'draw_box %d %d %d %d %d', ceil(crit_rect(1)), ceil(crit_rect(2)), ceil(crit_rect(3)), ceil(crit_rect(4)), 7);  % Critical distractor in gray
-                Eyelink('Message', '!V IAREA DISTRACTOR %d %d %d %d CritDistBox', ceil(crit_rect(1)), ceil(crit_rect(2)), ceil(crit_rect(3)), ceil(crit_rect(4)));
+                Eyelink('Message', '!V IAREA RECTANGLE %d %d %d %d CritDistBox', ceil(crit_rect(1)), ceil(crit_rect(2)), ceil(crit_rect(3)), ceil(crit_rect(4)));
             end
         end
 
@@ -460,7 +460,7 @@ for run_looper = run_num:total_runs
 
             if eyetracking
                 % Define AOIs
-                Eyelink('Message', '!V IAREA DISTRACTOR %d %d %d %d NonCritDistBox%d', ceil(this_rect(1)), ceil(this_rect(2)), ceil(this_rect(3)), ceil(this_rect(4)), k);
+                Eyelink('Message', '!V IAREA RECTANGLE %d %d %d %d NonCritDistBox%d', ceil(this_rect(1)), ceil(this_rect(2)), ceil(this_rect(3)), ceil(this_rect(4)), k);
                 Eyelink('command', 'draw_box %d %d %d %d %d', ceil(this_rect(1)), ceil(this_rect(2)), ceil(this_rect(3)), ceil(this_rect(4)), 3);  % Non-critical distractor in darker gray
             end
         end
@@ -612,7 +612,7 @@ for run_looper = run_num:total_runs
         bx_trial_info(trial_looper).timestamp = datestr(now, 'yyyy-mm-dd HH:MM:SS.FFF');
 
 
-        post_search_duration = .5; % seconds
+        post_search_duration = 1; % 5 seconds
         feedback_duration = 0.2; % seconds
         post_viewing = true;
 
@@ -654,7 +654,7 @@ for run_looper = run_num:total_runs
 
                 WaitSecs(post_search_duration)
             end
-        elseif run_looper > 4 || run_looper == 1
+        elseif run_looper == 1 || run_looper > 4
             if trial_accuracy == false
                 DrawFormattedText(w, 'Incorrect!', 'center', 'center', col.fg);
                 Screen('Flip', w);
@@ -717,7 +717,7 @@ for run_looper = run_num:total_runs
     %% SAVE BX DATA
     % log session info
     sessionEnd = now;
-    log_session_info(sub_num, run_looper, total_trials, sessionStart, sessionEnd, logFile, eyetracking, edf_file_name);
+    log_session_info(sub_num, run_looper, experimenter_initials, total_trials, sessionStart, sessionEnd, logFile, eyetracking, edf_file_name);
     
     % save trial data to CSV
     trialTable = struct2table(bx_trial_info);
