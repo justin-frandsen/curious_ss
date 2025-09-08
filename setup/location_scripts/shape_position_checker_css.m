@@ -22,11 +22,18 @@ sca;
 %% ADD PATHS
 addpath(genpath('../'));
 
-%% SETTINGS
-scene_folder = '../../stimuli/scenes/';
-shapes_folder = '../../stimuli/shapes/transparent_black';
+main = true; % set to false to only run practice scenes
 
-shape_positions_file = '../../trial_structure_files/shape_positions.mat';
+%% SETTINGS
+if main
+    scene_folder = '../../stimuli/scenes/main';
+    shape_positions_file = '../../trial_structure_files/shape_positions.mat';
+else
+    scene_folder = '../../stimuli/scenes/practice';
+    shape_positions_file = '../../trial_structure_files/practice_shape_positions.mat';
+end
+
+shapes_folder = '../../stimuli/shapes/transparent_black';
 
 scr_w = 1920;
 scr_h = 1080;

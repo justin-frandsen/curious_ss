@@ -28,8 +28,14 @@ sca;
 %% ADD PATHS
 addpath(genpath('../'));
 
+main = true; % set to false to only run practice scenes
 %% settings
-scene_folder = '../../stimuli/scenes/';
+if main
+    scene_folder = '../../stimuli/scenes/main';
+else
+    scene_folder = '../../stimuli/scenes/practice';
+end
+
 shapes_folder = '../../stimuli/shapes/transparent_black';
 
 scr_w = 1920;
@@ -155,8 +161,11 @@ end
 %% SAVE POSITIONS
 % Define directory and file paths
 dir_path = fullfile('..', '..', 'trial_structure_files');
-file_path = fullfile(dir_path, 'shape_positions.mat');
-
+if main
+    file_path = fullfile(dir_path, 'shape_positions.mat');
+elseif ~main
+    file_path = fullfile(dir_path, 'practice_shape_positions.mat');
+end
 % Ensure directory exists
 if ~exist(dir_path, 'dir')
     [status, msg] = mkdir(dir_path);

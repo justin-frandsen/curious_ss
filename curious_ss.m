@@ -612,7 +612,7 @@ for run_looper = run_num:total_runs
         bx_trial_info(trial_looper).timestamp = datestr(now, 'yyyy-mm-dd HH:MM:SS.FFF');
 
 
-        post_search_duration = 1; % 5 seconds
+        post_search_duration = 4; % 4 seconds
         feedback_duration = 0.2; % seconds
         post_viewing = true;
 
