@@ -16,6 +16,7 @@ Participants are given a visual search task to search for a previously cued targ
 
 
 ## Folder Structure
+```
 ├── .gitignore # Git ignore rules
 ├── LICENSE # License file
 ├── README.md # Project documentation
@@ -52,7 +53,7 @@ Participants are given a visual search task to search for a previously cued targ
 └── /trial_structure_files/ # Generated trial structure files
 ├── randomizor.mat
 └── shape_positions.mat
-
+```
 ## Getting Started
 
 1. Clone the repository:
