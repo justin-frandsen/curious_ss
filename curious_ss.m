@@ -335,6 +335,11 @@ for run_looper = run_num:total_runs
     for trial_looper = 1:total_trials
         if eyetracking
             Eyelink('command', 'clear_screen 0'); % optional: clear tracker display
+            Eyelink('Message', 'TRIALID %d', trial_looper); % support said to put this before the recording starts
+            Eyelink('StartRecording');
+            WaitSecs(0.1); % Wait for 100 ms to allow the tracker to
+            HideCursor(scrID);         % Hide mouse cursor before the next trial
+            SetMouse(10, 10, scrID);   % Move the mouse to the corner -- in case some jerk has unhidden it 
         end
 
         response = -1; % set response to -1 (missing) at start of each trial
@@ -412,7 +417,7 @@ for run_looper = run_num:total_runs
         if eyetracking
             % Define AOIs
             Eyelink('command', 'draw_box %d %d %d %d %d', ceil(target_rect(1)), ceil(target_rect(2)), ceil(target_rect(3)), ceil(target_rect(4)), 15); % Target in white
-            Eyelink('Message', '!V IAREA RECTANGLE %d %d %d %d TargetBox', ceil(target_rect(1)), ceil(target_rect(2)), ceil(target_rect(3)), ceil(target_rect(4)));
+            Eyelink('Message', '!V IAREA RECTANGLE 1 %d %d %d %d TargetBox', ceil(target_rect(1)), ceil(target_rect(2)), ceil(target_rect(3)), ceil(target_rect(4)));
         end
 
         if t_directions(1) == 0
@@ -422,8 +427,9 @@ for run_looper = run_num:total_runs
             % right target  
             Screen('DrawTexture', search, sorted_right_shapes_textures(target_texture_index), [], target_rect);
         end
-
+        
         crit_dist_position = []; 
+        rect_id = 2; % ID for critical distractor AOI
         
         % ---- draw CRITICAL DISTRACTOR only in training
         if run_looper <= 5 && run_looper > 1
@@ -443,7 +449,8 @@ for run_looper = run_num:total_runs
             if eyetracking
                 % Define AOIs
                 Eyelink('command', 'draw_box %d %d %d %d %d', ceil(crit_rect(1)), ceil(crit_rect(2)), ceil(crit_rect(3)), ceil(crit_rect(4)), 7);  % Critical distractor in gray
-                Eyelink('Message', '!V IAREA RECTANGLE %d %d %d %d CritDistBox', ceil(crit_rect(1)), ceil(crit_rect(2)), ceil(crit_rect(3)), ceil(crit_rect(4)));
+                Eyelink('Message', '!V IAREA RECTANGLE %d %d %d %d %d CritDistBox', rect_id, ceil(crit_rect(1)), ceil(crit_rect(2)), ceil(crit_rect(3)), ceil(crit_rect(4)));
+                rect_id = rect_id + 1; % Increment rect_id for next AOI
             end
         end
 
@@ -464,8 +471,9 @@ for run_looper = run_num:total_runs
 
             if eyetracking
                 % Define AOIs
-                Eyelink('Message', '!V IAREA RECTANGLE %d %d %d %d NonCritDistBox%d', ceil(this_rect(1)), ceil(this_rect(2)), ceil(this_rect(3)), ceil(this_rect(4)), k);
+                Eyelink('Message', '!V IAREA RECTANGLE %d %d %d %d %d NonCritDistBox%d', rect_id, ceil(this_rect(1)), ceil(this_rect(2)), ceil(this_rect(3)), ceil(this_rect(4)), k);
                 Eyelink('command', 'draw_box %d %d %d %d %d', ceil(this_rect(1)), ceil(this_rect(2)), ceil(this_rect(3)), ceil(this_rect(4)), 3);  % Non-critical distractor in darker gray
+                rect_id = rect_id + 1; % Increment rect_id for next AOI
             end
         end
 
@@ -479,12 +487,7 @@ for run_looper = run_num:total_runs
         % Draw your texture into the offscreen window
         Screen('DrawTexture', cue_display, sorted_nonsided_shapes_textures(target_texture_index));
 
-        if eyetracking
-            Eyelink('Message', 'TRIALID %d', trial_looper); % support said to put this before the recording starts
-            Eyelink('StartRecording');
-            WaitSecs(0.1); % Wait for 100 ms to allow the tracker to
-            HideCursor(scrID);         % Hide mouse cursor before the next trial
-            SetMouse(10, 10, scrID);   % Move the mouse to the corner -- in case some jerk has unhidden it    
+        if eyetracking   
             centralFixation(w, height, width, fixation, fix, trial_looper, el, eye_used)
         else
             % Fixation cross just drawn for when testing.
@@ -662,9 +665,6 @@ for run_looper = run_num:total_runs
             if trial_accuracy == false
                 DrawFormattedText(w, 'Incorrect!', 'center', 'center', col.fg);
                 Screen('Flip', w);
-                if eyetracking
-                    Eyelink('Message', 'END_TIME SEARCH_PERIOD');
-                end
                 WaitSecs(.5); % Wait for 2 seconds before closing
             end
         end
@@ -674,6 +674,8 @@ for run_looper = run_num:total_runs
         if eyetracking
             if run_looper <= 5 && run_looper > 1
                 Eyelink('Message', 'END_TIME POST_SEARCH_PERIOD');
+            elseif run_looper == 1 || run_looper > 5
+                Eyelink('Message', 'END_TIME SEARCH_PERIOD');
             end
             Eyelink('Message', '!V IAREA END');
             Eyelink('Message', '!V TRIAL_VAR RT %d', RT);
