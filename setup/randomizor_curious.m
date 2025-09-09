@@ -135,13 +135,18 @@ for sub_num = 1:total_subs
             % Practice run: Randomize scenes, no distractors/conditions
             target_choice =[1 2 3 4 4 3 2 1];
             practice_run_matrix = zeros(8, 6);
+            counter = 1;
             for i = 1:8
-                practice_run_matrix(i, SCENE_ID) = i;
+                practice_run_matrix(i, SCENE_ID) = counter;
                 practice_run_matrix(i, REP) = 0; %this doesn't matter for practice
                 practice_run_matrix(i, TARGET) = target_choice(i);
                 practice_run_matrix(i, CONDITION) = 0; %always valid for practice
                 practice_run_matrix(i, RUN) = 1; %practice run
                 practice_run_matrix(i, DISTRACTOR) = 0; %no distractors for practice
+                counter = counter + 1;
+                if counter > 4
+                    counter = 1;
+                end
             end
 
             practice_run_matrix = shuffle_matrix(practice_run_matrix, ...
