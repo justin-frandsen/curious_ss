@@ -189,10 +189,6 @@ total_scenes = length(scene_file_paths);
 %load in shapes for instructions
 [sorted_instruction_shapes_file_paths, sorted_instruction_shapes_textures] = image_stimuli_import(instruction_shapes, '*.png', w, true);
 
-% Load in the shape positions
-shape_positions = load('trial_structure_files/shape_positions.mat'); % Load the shape positions
-saved_positions = shape_positions.saved_positions; % Assign saved_positions for later use
-
 %% Background Screens
 % Screens
 Screen('TextSize', w, my_font_size);
@@ -241,10 +237,14 @@ for run_looper = run_num:total_runs
     logFile = sprintf('data/log_files/subj%d_run%dlog.txt', sub_num, run_looper);
     sessionStart = now;
 
-    if run_looper <= 4
-        phase = 'training';
-    elseif run_looper > 4
-        phase = 'testing';
+    if run_looper == 1
+        % Load in the shape positions
+        shape_positions = load('trial_structure_files/practice_shape_positions.mat'); % Load the shape positions
+        saved_positions = shape_positions.saved_positions; % Assign saved_positions for later use
+    else
+        % Load in the shape positions
+        shape_positions = load('trial_structure_files/shape_positions.mat'); % Load the shape positions
+        saved_positions = shape_positions.saved_positions; % Assign saved_positions for later use
     end
 
     %% INITIALIZE BX STRUCT

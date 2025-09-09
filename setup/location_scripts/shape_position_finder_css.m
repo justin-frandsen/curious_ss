@@ -28,7 +28,7 @@ sca;
 %% ADD PATHS
 addpath(genpath('../'));
 
-main = true; % set to false to only run practice scenes
+main = false; % set to false to only run practice scenes
 %% settings
 if main
     scene_folder = '../../stimuli/scenes/main';
@@ -62,16 +62,16 @@ logFileName = sprintf(log_name_format, dateStr);
 % Build the full file path
 logFilePath = fullfile('..', '..', 'data', 'log_files', logFileName);
 
-fid = fopen(logFilePath, 'w');
-if fid == -1
-    warning('Failed to write session log to %s', logFilePath);
-    return;
-end
+%fid = fopen(logFilePath, 'w');
+%if fid == -1
+%    warning('Failed to write session log to %s', logFilePath);
+%    return;
+%end
 
-fprintf(fid, '--- Session Log ---\n');
-fprintf(fid, 'Log file created: %s\n', datestr(now, 'yyyy-mm-dd HH:MM:SS'));
-fprintf(fid, 'Log file path: %s\n\n', logFilePath);
-fclose(fid);
+%fprintf(fid, '--- Session Log ---\n');
+%fprintf(fid, 'Log file created: %s\n', datestr(now, 'yyyy-mm-dd HH:MM:SS'));
+%fprintf(fid, 'Log file path: %s\n\n', logFilePath);
+%fclose(fid);
 
 % Initialize PTB window
 [w, rect] = pfp_ptb_init; %call this function which contains all the screen initialization.
@@ -143,19 +143,19 @@ for scene_num = 1:length(scenes_texture_matrix)
         end
         saved_positions{scene_num, position_num} = position; % Save the position of the shape
     end
-    if bad_scene
-        % Open file in append mode
-        fid = fopen(logFilePath, 'a');
-        if fid == -1
-            warning('Failed to write session log to %s', logFilePath);
-            return;
-        end
-
-        fprintf(fid, 'Scene %s index %d is a bad scene and unusable.\n', char(scenes_file_paths(scene_num)), scene_num);
-        fclose(fid);
-
-        fprintf('[LOGGED] Scene: %s\n', char(scenes_file_paths(scene_num)));
-    end
+    %if bad_scene
+    %    % Open file in append mode
+    %    fid = fopen(logFilePath, 'a');
+    %    if fid == -1
+    %        warning('Failed to write session log to %s', logFilePath);
+    %        return;
+    %    end
+%
+    %    fprintf(fid, 'Scene %s index %d is a bad scene and unusable.\n', char(scenes_file_paths(scene_num)), scene_num);
+    %    fclose(fid);
+%
+    %    fprintf('[LOGGED] Scene: %s\n', char(scenes_file_paths(scene_num)));
+    %end
 end
 
 %% SAVE POSITIONS

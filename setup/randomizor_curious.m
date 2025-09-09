@@ -132,6 +132,7 @@ for sub_num = 1:total_subs
 
         % Extract this run’s rows
         if run == 1
+            this_run_scene = scene_randomizor(scene_randomizor(:, RUN) == 2, :);
             % Practice run: Randomize scenes, no distractors/conditions
             target_choice =[1 2 3 4 4 3 2 1];
             practice_run_matrix = zeros(8, 6);
@@ -176,7 +177,7 @@ for sub_num = 1:total_subs
                 possible_locations(4) = remaining_distractors(randi(length(remaining_distractors)));  % random from remaining
                 all_possible_locations(trial, :) = possible_locations;
             end
-        elseif run <= 4 && run >= 1
+        elseif run <= 5 && run > 1
             this_run_scene = scene_randomizor(scene_randomizor(:, RUN) == run-1, :);
 
             % Assign distractors in groups of 3
@@ -226,7 +227,7 @@ for sub_num = 1:total_subs
                 end
                 all_possible_locations(trial, :) = possible_locations;
             end
-        elseif run > 4
+        elseif run > 5
             this_run_scene = scene_randomizor(scene_randomizor(:, RUN) == run-1, :);
 
             % Runs 5–6: No distractors, just shuffle
