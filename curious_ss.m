@@ -54,7 +54,7 @@ expName      = 'curious_ss';
 refresh_rate = 60;  % Hz
 
 % Eyetracker
-eyetracking             = false; % true = real eyetracking, false = no eyetracking
+eyetracking             = true; % true = real eyetracking, false = no eyetracking
 fixationTimeThreshold   = 50;    % ms, minimum fixation duration to log
 fix.radius              = 90;
 fix.timeout             = 5000;
@@ -87,7 +87,7 @@ beeper.duration = 0.3;  % sec
 % Response Keys
 KbName('UnifyKeyNames');
 key.left  = 'z';
-key.right = 'x';
+key.right = '/?';
 key.yes   = '1!';
 key.no    = '2@';
 key.esc   = '0)';
@@ -227,9 +227,6 @@ t = 0;
 ACCcount = 0;
 trialcounter = 0;
 
-% show instructions
-showInstructions(w, sorted_instruction_shapes_textures, key.left, key.right);
-
 %% EXPERIMENT START
 for run_looper = run_num:total_runs
     % LOG FILE SETTINGS
@@ -324,9 +321,12 @@ for run_looper = run_num:total_runs
         % Send run start message
         Eyelink('Message', 'Experiment start Subject %d Run %d', sub_num, run_looper);
     end
+    
+    % show instructions
+    showInstructions(w, sorted_instruction_shapes_textures, key.left, key.right);
 
     %% Loop through trials
-    if run_num == 1
+    if run_looper == 1
         total_trials = 8;
     elseif run_looper > 1
         total_trials = 72;
@@ -552,13 +552,13 @@ for run_looper = run_num:total_runs
             end
         end
 
-        if t_directions(1) == 0 && response == key.left
+        if t_directions(1) == 0 && strcmp(response, key.left)
             trial_accuracy = 1;
-        elseif t_directions(1) == 1 && response == key.right
+        elseif t_directions(1) == 1 && strcmp(response, key.right)
             trial_accuracy = 1;
-        elseif t_directions(1) == 1 && response == key.left
+        elseif t_directions(1) == 1 && strcmp(response, key.left)
             trial_accuracy = 0;
-        elseif t_directions(1) == 0 && response == key.right
+        elseif t_directions(1) == 0 && strcmp(response, key.right)
             trial_accuracy = 0;
         end
 
