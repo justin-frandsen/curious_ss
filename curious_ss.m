@@ -222,7 +222,6 @@ if eyetracking
     
     el = setup_eyelink(w);
 end
-
 %% Start Experiment
 t = 0;
 ACCcount = 0;
@@ -372,8 +371,13 @@ for run_looper = run_num:total_runs
         search = Screen('OpenOffscreenWindow', scrID, col.bg, rect, 32);
         post_search = Screen('OpenOffscreenWindow', scrID, col.bg, rect, 32);
         % Draw the scene texture
-        Screen('DrawTexture', search, scene_textures(scene_inds), [], rect);
-        Screen('DrawTexture', post_search, scene_textures(scene_inds), [], rect);
+        if run_looper == 1
+            Screen('DrawTexture', search, practice_scene_textures(scene_inds), [], rect);
+            Screen('DrawTexture', post_search, practice_scene_textures(scene_inds), [], rect);
+        else
+            Screen('DrawTexture', search, scene_textures(scene_inds), [], rect);
+            Screen('DrawTexture', post_search, scene_textures(scene_inds), [], rect);
+        end
 
         % Enable blending for transparency inside this offscreen window
         Screen('BlendFunction', search, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
