@@ -16,19 +16,19 @@
 %   shape was on the floor, counter, or wall.
 %-----------------------------------------------------------------------
 %% CLEAR VARIABLES
-clc;
+%clc;
 try
-    close all
+    %close all
 catch
     % ignore
 end
-clear all;
+%clear all;
 sca;
 
 %% ADD PATHS
 addpath(genpath('../'));
 
-main = false; % set to false to only run practice scenes
+main = true; % set to false to only run practice scenes
 %% settings
 if main
     scene_folder = '../../stimuli/scenes/main';
@@ -88,12 +88,13 @@ Screen('BlendFunction', w, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA'); %allows th
 texture_size = [0, 0, 106, 106]; % In this version I am maintaining the same size as the previous experiment at 106 pixels tall and wide
 number_of_positions = 6; % Number of positions to save for each scene
 
-saved_positions = cell(length(scenes_texture_matrix), number_of_positions); % Initialize cell array to store positions
+%saved_positions = cell(length(scenes_texture_matrix), number_of_positions); % Initialize cell array to store positions
 
 KbName('UnifyKeyNames');
 
 %loop for presenting scenes and their
-for scene_num = 1:length(scenes_texture_matrix)
+for scene_num = 54:length(scenes_texture_matrix)
+    fprintf('%d / %d\n', scene_num, length(scenes_texture_matrix));
     %% DRAW SCENE   
     scene = Screen('OpenOffscreenWindow', scrID, col.bg, rect);
     % Draw the scene texture
