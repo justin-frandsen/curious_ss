@@ -530,7 +530,7 @@ for run_looper = run_num:total_runs
         % --- Wait for response or until deadline ---
         responseMade = false;
         trialActive  = true;
-        RT = NaN; % Initialize RT as NaN
+        RT = -999; % Initialize RT as -999
         trial_accuracy = -1; % Initialize accuracy as -1 (no response)
 
         while trialActive && (GetSecs - stimOnsetTime) < search_display_duration
