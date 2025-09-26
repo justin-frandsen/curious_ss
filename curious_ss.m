@@ -585,7 +585,6 @@ for run_looper = run_num:total_runs
         end
 
         %% LOG OUTPUT VARIABLES
-        %% LOG OUTPUT VARIABLES
         bx_trial_info(trial_looper).trial_num                = trial_looper;
         bx_trial_info(trial_looper).trial_onset              = stimOnsetTime;
         bx_trial_info(trial_looper).trial_offset             = GetSecs();
