@@ -267,8 +267,12 @@ for run_looper = run_num:total_runs
         'critical_distractor_idx', [], ...           % critical distractor texture index
         'critical_distractor_association', [], ...   % critical distractor association
         'critical_distractor_rect', [], ...          % critical distractor coords
-        'noncritical_distractor_idx', [], ...        % non-critical distractors (indices)
-        'noncritical_distractor_rects', [], ...      % non-critical distractors (coords)
+        'noncritical_distractor_idx1', [], ...        % non-critical distractors (indices)
+        'noncritical_distractor_rect1', [], ...      % non-critical distractors (coords)
+        'noncritical_distractor_idx2', [], ...        % non-critical distractors (indices)
+        'noncritical_distractor_rect2', [], ...      % non-critical distractors (coords)
+        'noncritical_distractor_idx3', [], ...        % non-critical distractors (indices)
+        'noncritical_distractor_rect3', [], ...      % non-critical distractors (coords)
         'condition', [], ...                         % condition code
         't_direction', [], ...                       % orientation of T
         'response_key', '', ...                      % key pressed
@@ -454,6 +458,10 @@ for run_looper = run_num:total_runs
             end
         end
 
+
+        noncrit_rect3 = 'na';
+        noncrit_ind3 = 'na';
+
         for k = 1:numel(remaining_positions)
             this_pos  = remaining_positions(k);       % map TYPE → POSITION
             this_rect = saved_positions{scene_inds, this_pos};
@@ -467,6 +475,17 @@ for run_looper = run_num:total_runs
                 % right non-critical distractor
                 Screen('DrawTexture', search, sorted_right_shapes_textures(this_distarctor), [], this_rect);
                 Screen('DrawTexture', post_search, sorted_right_shapes_textures(this_distarctor), [], this_rect);
+            end
+
+            if k == 1
+                noncrit_rect1 = this_rect;
+                noncrit_ind1 = this_distarctor;
+            elseif k == 2
+                noncrit_rect2 = this_rect;
+                noncrit_ind2 = this_distarctor;
+            elseif k == 3
+                noncrit_rect3 = this_rect;
+                noncrit_ind3 = this_distarctor;
             end
 
             if eyetracking
@@ -598,8 +617,12 @@ for run_looper = run_num:total_runs
             bx_trial_info(trial_looper).critical_distractor_rect        = [];
         end
 
-        %bx_trial_info(trial_looper).noncritical_distractor_idx   = noncritical_distractors;
-        %bx_trial_info(trial_looper).noncritical_distractor_rects = noncrit_rects;
+        bx_trial_info(trial_looper).noncritical_distractor_idx1   = noncrit_ind1;
+        bx_trial_info(trial_looper).noncritical_distractor_rect1  = noncrit_rect1;
+        bx_trial_info(trial_looper).noncritical_distractor_idx2   = noncrit_ind2;
+        bx_trial_info(trial_looper).noncritical_distractor_rect2  = noncrit_rect2;
+        bx_trial_info(trial_looper).noncritical_distractor_idx3   = noncrit_ind3;
+        bx_trial_info(trial_looper).noncritical_distractor_rect3  = noncrit_rect3;
 
         % Condition / stimulus info
         bx_trial_info(trial_looper).condition   = trial_condition;
