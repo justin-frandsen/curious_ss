@@ -54,7 +54,7 @@ expName      = 'curious_ss';
 refresh_rate = 60;  % Hz
 
 % Eyetracker
-eyetracking             = true; % true = real eyetracking, false = no eyetracking
+eyetracking             = false; % true = real eyetracking, false = no eyetracking
 fixationTimeThreshold   = 50;    % ms, minimum fixation duration to log
 fix.radius              = 90;
 fix.timeout             = 5000;
@@ -459,8 +459,8 @@ for run_looper = run_num:total_runs
         end
 
 
-        noncrit_rect3 = 'na';
-        noncrit_ind3 = 'na';
+        noncrit_rect3 = nan;
+        noncrit_ind3 = nan;
 
         for k = 1:numel(remaining_positions)
             this_pos  = remaining_positions(k);       % map TYPE → POSITION
@@ -597,7 +597,11 @@ for run_looper = run_num:total_runs
 
         % Scene info
         bx_trial_info(trial_looper).scene_idx                = scene_inds;
-        bx_trial_info(trial_looper).scene_file               = scene_file_paths{scene_inds};
+        if run_looper == 1
+            bx_trial_info(trial_looper).scene_file               = practice_scene_file_paths{scene_inds};
+        else
+            bx_trial_info(trial_looper).scene_file               = scene_file_paths{scene_inds};
+        end
 
         % Target info
         bx_trial_info(trial_looper).target_shape_idx         = target_texture_index;
