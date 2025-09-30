@@ -23,7 +23,7 @@ read <- function(data_folder, get_subj_info = FALSE){
 # ======= IMPORT BEHAVIORAL & EYE DATA =====================
 bx_files <- dir(path = "../data/bx_data/", full.names = TRUE)
 
-all_imported_bx_files <- read(bx_files)
+raw_imported_bx_files <- read(bx_files)
 
 eye_position_data <- read.delim("../data/eye_data/curious_eye_position_data/Output/eye_position_data.xls", 
                                 na.strings=".")
@@ -31,7 +31,7 @@ interest_area_report <- read.delim("../data/eye_data/curious_eye_position_data/O
                                 na.strings=".") #IA_LEFT, IA_RIGHT, IA_TOP, IA_BOTTOM (pixel coordinates on the display)
 
 # Add validity column and convert subject/run to factors
-all_imported_bx_files <- all_imported_bx_files %>% 
+all_imported_bx_files <- raw_imported_bx_files %>% 
   mutate(valid0invalid1 = ifelse(condition==0, 0, 1),
          sub_num = as.factor(sub_num),
          run_num = as.factor(run_num),
@@ -109,19 +109,36 @@ bx_rt_summary %>%
   )
 
 #======================= EYETRACKING ANALYSIS =========================
+trial_info <- all_imported_bx_files %>% 
+  select(scene_idx, trial_num, run_num, sub_num)
+
 
 eye_position_data <- eye_position_data %>% 
   mutate(run_num = as.numeric(str_sub(RECORDING_SESSION_LABEL, -1, -1)),
          sub_num = as.numeric(str_sub(RECORDING_SESSION_LABEL, -5, -3)))
 
+scene_info <- eye_position_data %>% 
+  select(sub_num, run_num, TRIAL_INDEX, scene)
+
 trial_interest_areas <- interest_area_report %>% 
-  select(RECORDING_SESSION_LABEL, TRIAL_INDEX, IA_LABEL, IA_LEFT, IA_RIGHT, IA_TOP, IA_BOTTOM) %>% 
+  select(RECORDING_SESSION_LABEL, TRIAL_INDEX, IA_LABEL, IA_LEFT, IA_RIGHT, IA_TOP, IA_BOTTOM, scene) %>% 
   mutate(run_num = as.numeric(str_sub(RECORDING_SESSION_LABEL, -1, -1)),
-         sub_num = as.numeric(str_sub(RECORDING_SESSION_LABEL, -5, -3))) %>% 
-  pivot_wider(names_from = IA_LABEL, values_from = c(IA_LEFT, IA_RIGHT, IA_TOP, IA_BOTTOM))
+         sub_num = as.numeric(str_sub(RECORDING_SESSION_LABEL, -5, -3)),
+         scene_idx = scene) %>% 
+  pivot_wider(names_from = IA_LABEL, values_from = c(IA_LEFT, IA_RIGHT, IA_TOP, IA_BOTTOM)) %>% 
+  filter(run_num != 1,
+         sub_num == 17)
 
 trial_counts <- eye_position_data %>%
   group_by(sub_num) %>%
-  summarise(n_trials = n_distinct(TRIAL_INDEX)) 
+  summarise(n_trials = n_distinct(TRIAL_INDEX))
 
+trial_counts <- eye_position_data %>%
+  distinct(sub_num, run_num, TRIAL_INDEX) %>%   # drop duplicates if trial has multiple rows (e.g., ROIs, fixations)
+  count(sub_num, run_num, name = "n_trials")
 
+joined <- trial_interest_areas %>% 
+  left_join(trial_interest_areas, trial_info, by = c("sub_num", "run_num", "scene_idx"))
+
+trial_interest_areas %>%
+  count(sub_num, run_num, scene_idx) %>% summary()
