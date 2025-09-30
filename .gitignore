@@ -29,6 +29,7 @@
 .Ruserdata
 .Rproj.user/
 .Rproj
+*.Rproj
 *.Rout
 *.Rout.save
 

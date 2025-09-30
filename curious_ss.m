@@ -543,6 +543,8 @@ for run_looper = run_num:total_runs
             Eyelink('Message', 'START_TIME SEARCH_PERIOD');
             Eyelink('Message', 'SYNCTIME');
             Eyelink('Message', '!V TRIAL_VAR condition %d', trial_condition);
+            Eyelink('Message', '!V TRIAL_VAR trial_num %d', trial_looper);
+            Eyelink('Message', '!V TRIAL_VAR trial_num %d', sub_num);
             Eyelink('Message', '!V TRIAL_VAR block %d', run_looper);
             Eyelink('Message', '!V TRIAL_VAR scene %d', scene_inds);
         end
@@ -706,6 +708,7 @@ for run_looper = run_num:total_runs
             Eyelink('Message', '!V IAREA END');
             Eyelink('Message', '!V TRIAL_VAR RT %d', RT);
             Eyelink('Message', '!V TRIAL_VAR acc %d', trial_accuracy);
+            Eyelink('Message', 'TRIAL_RESULT 0');
 
             Eyelink('StopRecording');
         end
