@@ -544,7 +544,7 @@ for run_looper = run_num:total_runs
             Eyelink('Message', 'SYNCTIME');
             Eyelink('Message', '!V TRIAL_VAR condition %d', trial_condition);
             Eyelink('Message', '!V TRIAL_VAR trial_num %d', trial_looper);
-            Eyelink('Message', '!V TRIAL_VAR trial_num %d', sub_num);
+            Eyelink('Message', '!V TRIAL_VAR sub_num %d', sub_num);
             Eyelink('Message', '!V TRIAL_VAR block %d', run_looper);
             Eyelink('Message', '!V TRIAL_VAR scene %d', scene_inds);
         end
