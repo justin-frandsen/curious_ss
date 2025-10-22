@@ -44,10 +44,22 @@ na_tokens <- c("", ".", "NA", "null", "UNDEFINED", "UNDEFINEDnull")
 
 raw_imported_bx_files <- read_data("../data/bx_data/", get_subj_info = FALSE)
 
-eye_position_data <- read_delim("../data/eye_data/curious_eye_position_data/Output/eye_position_data_10_22.xls", 
+eye_position_SEARCH_PERIOD <- read_delim("../data/eye_data/curious_eye_position_data/Output/eye_position_data_SEARCH_PERIOD_10_22.xls", 
+                                delim = "\t",
+                                na = na_tokens)
+
+eye_position_data_POST_SEARCH_PERIOD <- read_delim("../data/eye_data/curious_eye_position_data/Output/eye_position_data_POST_SEARCH_PERIOD_10_22.xls", 
+                                delim = "\t",
+                                na = na_tokens)
+
+eye_position_data_FULL_SEARCH_PERIOD_TRAINING <- read_delim("../data/eye_data/curious_eye_position_data/Output/eye_position_data_FULL_SEARCH_PERIOD_TRAINING_10_22.xls", 
                                 delim = "\t",
                                 na = na_tokens)
                                 
+eye_position_data_FULL_SEARCH_PERIOD_TRAINING <- read_delim("../data/eye_data/curious_eye_position_data/Output/eye_position_data_FULL_SEARCH_PERIOD_TRAINING_10_22.xls", 
+                                                            delim = "\t",
+                                                            na = na_tokens)
+
 interest_area_report <- read_delim(
   "../data/eye_data/curious_eye_position_data/Output/interest_area_report_10_22.xls",
   delim = "\t",
@@ -117,10 +129,6 @@ effectsize::eta_squared(aov_RT, partial = TRUE, ci = 0.95)
 model.tables(aov_RT, "means")
 emmeans(aov_RT, pairwise ~ Validity | phase)
 emmeans(aov_RT, pairwise ~ phase | Validity)
-
-validity_by_phase <- emmeans(aov_RT, pairwise ~ Validity | phase) %>% broom::tidy()
-phase_by_validity <- emmeans(aov_RT, pairwise ~ phase | Validity) %>% broom::tidy()
-
 
 # RT summary stats by condition
 bx_rt_summary %>%
@@ -206,11 +214,57 @@ eye_position_data <- eye_position_data %>%
   mutate(run_num = as.numeric(str_sub(RECORDING_SESSION_LABEL, -1, -1)),
          sub_num = as.numeric(str_sub(RECORDING_SESSION_LABEL, -5, -3)),
          run_num = as.factor(run_num),
-         sub_num = as.factor(sub_num))
+         sub_num = as.factor(sub_num)) %>% 
+  group_by(sub_num, run_num) %>%       # Group by subject and run
+  arrange(sub_num, run_num, TRIAL_INDEX) %>%        # Ensure proper order
+  mutate(trial_num = dense_rank(TRIAL_INDEX)) %>%  # Count trial within each group
+  ungroup()
 
 eye_position_data_with_ROIs <- eye_position_data %>% 
-  left_join(trial_interest_areas_wide, by = c("sub_num", "run_num", "TRIAL_INDEX")) %>% 
-  mutate(trial_num_old = trial_num.x,
-         trial_num = trial_num.y) %>% 
-  select(-trial_num.x, -trial_num.y)
+  left_join(trial_interest_areas_wide, by = c("sub_num", "run_num", "trial_num"))
+
+roi_names <- c("TargetBox", "NonCritDistBox1", "NonCritDistBox2", "NonCritDistBox3", "CritDistBox")
+
+# Example for a single ROI called "target"
+eye_position_data_with_ROIs <- eye_position_data_with_ROIs %>%
+  mutate(
+    in_TargetBox = ifelse(
+      between(CURRENT_FIX_X, IA_LEFT_TargetBox, IA_RIGHT_TargetBox) &
+        between(CURRENT_FIX_Y, IA_TOP_TargetBox, IA_BOTTOM_TargetBox), 1, 0),
+    in_NonCritDistBox1 = ifelse(
+      between(CURRENT_FIX_X, IA_LEFT_NonCritDistBox1, IA_RIGHT_NonCritDistBox1) &
+        between(CURRENT_FIX_Y, IA_TOP_NonCritDistBox1, IA_BOTTOM_NonCritDistBox1), 1, 0),
+    in_NonCritDistBox2 = ifelse(
+      between(CURRENT_FIX_X, IA_LEFT_NonCritDistBox2, IA_RIGHT_NonCritDistBox2) &
+        between(CURRENT_FIX_Y, IA_TOP_NonCritDistBox2, IA_BOTTOM_NonCritDistBox2), 1, 0),
+    in_NonCritDistBox3 = ifelse(
+      between(CURRENT_FIX_X, IA_LEFT_NonCritDistBox3, IA_RIGHT_NonCritDistBox3) &
+        between(CURRENT_FIX_Y, IA_TOP_NonCritDistBox3, IA_BOTTOM_NonCritDistBox3), 1, 0),
+    in_CritDistBox = ifelse(
+      between(CURRENT_FIX_X, IA_LEFT_CritDistBox, IA_RIGHT_CritDistBox) &
+        between(CURRENT_FIX_Y, IA_TOP_CritDistBox, IA_BOTTOM_CritDistBox), 1, 0),
+    current_roi = ifelse(in_TargetBox, "TargetBox", 
+                         ifelse(in_NonCritDistBox1, "NonCritDistBox1", 
+                                ifelse(in_NonCritDistBox2, "NonCritDistBox2", 
+                                       ifelse(in_NonCritDistBox3, "NonCritDistBox3", 
+                                              ifelse(in_CritDistBox, "CritDistBox", NA))))))
+
+# Summarize fixations per trial
+fixation_summary <- eye_position_data_with_ROIs %>%
+  group_by(sub_num, run_num, trial_num) %>%
+  summarise(
+    total_fixations = n(),
+    fixations_on_Target = sum(in_TargetBox, na.rm = TRUE),
+    fixations_on_NonCritDist1 = sum(in_NonCritDistBox1, na.rm = TRUE),
+    fixations_on_NonCritDist2 = sum(in_NonCritDistBox2, na.rm = TRUE),
+    fixations_on_NonCritDist3 = sum(in_NonCritDistBox3, na.rm = TRUE),
+    fixations_on_CritDist = sum(in_CritDistBox, na.rm = TRUE),
+    prop_Target = mean(in_TargetBox, na.rm = TRUE),
+    prop_NonCritDist1 = mean(in_NonCritDistBox1, na.rm = TRUE),
+    prop_NonCritDist2 = mean(in_NonCritDistBox2, na.rm = TRUE),
+    prop_NonCritDist3 = mean(in_NonCritDistBox3, na.rm = TRUE),
+    prop_CritDist = mean(in_CritDistBox, na.rm = TRUE),
+    first_fixation_ROI = first(current_roi),
+    .groups = "drop"
+  )
 
