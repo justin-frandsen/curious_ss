@@ -3,27 +3,28 @@ library(emmeans)
 library(car)
 
 # Reads all files in a folder and optionally adds subject/run info from filenames
-read <- function(data_folder, get_subj_info = FALSE){
-  full <- data.frame()
-  for (file in data_folder) {
-    # Read in each CSV file
-    individual <- read.csv(file = file)
-    if (get_subj_info == TRUE){
-      # Extract run and subject numbers from filename using string positions
-      run_num = str_sub(file,-6, -4)
-      sub_num = str_sub(file,-8, -6)
-      individual$run_num <- run_num
-      individual$sub_num <- sub_num
+#' df <- read_data("data/", get_subj_info = TRUE)
+read_data <- function(data_folder, get_subj_info = FALSE) {
+  files <- list.files(path = data_folder, full.names = TRUE, pattern = "\\.csv$")
+  
+  if (length(files) == 0) stop("No CSV files found in folder: ", data_folder)
+  
+  data <- purrr::map_dfr(files, function(file) {
+    df <- read.csv(file)
+    
+    if (get_subj_info) {
+      fname <- basename(file)
+      fname <- tools::file_path_sans_ext(fname)
+      df$run_num <- stringr::str_sub(fname, -3, -1)
+      df$sub_num <- stringr::str_sub(fname, -6, -4)
     }
-    full <- dplyr::bind_rows(full, individual)
-  }
-  return(full)
+    df
+  })
+  return(data)
 }
 
 # ======= IMPORT BEHAVIORAL & EYE DATA =====================
-bx_files <- dir(path = "../data/bx_data/", full.names = TRUE)
-
-raw_imported_bx_files <- read(bx_files)
+raw_imported_bx_files <- read_data("../data/bx_data/")
 
 eye_position_data <- read.delim("../data/eye_data/curious_eye_position_data/Output/eye_position_data.xls", 
                                 na.strings=".")
