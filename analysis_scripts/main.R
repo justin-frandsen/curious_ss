@@ -91,7 +91,8 @@ all_bx_files <- all_imported_bx_files %>%
     accuracy == 1,
     run_num != 1,
     unique_runs == 7,
-    overall_accuracy > 0.80) %>%
+    overall_accuracy > 0.80,
+    sub_num != 120) %>%
   # --- Group by participant and condition factors for within-subject cleanup ---
   group_by(sub_num, valid0invalid1, phase) %>%
   # --- Remove RT outliers ---
@@ -112,6 +113,36 @@ removed_trials <- all_bx_files %>%
     removed_trials = sum(is.na(rt))
   )
 
+unique_targets_summary <- all_imported_bx_files %>%
+  group_by(sub_num, run_num) %>%
+  summarise(
+    unique_targets = list(unique(target_shape_idx)),
+    unique_distractors = list(unique(critical_distractor_idx)),
+    .groups = "drop")
+
+# Pivot wider so runs 2 and 4 are columns
+run_comparison <- unique_targets_summary %>%
+  filter(run_num %in% c(2, 6)) %>%
+  pivot_wider(
+    names_from = run_num,
+    values_from = c(unique_targets, unique_distractors),
+    names_glue = "run{run_num}_{.value}"
+  ) %>%
+  mutate(
+    # Find which targets from run 4 are *not* in distractors from run 2
+    missing_target_from_run2 = map2(run6_unique_targets, run2_unique_distractors, ~ setdiff(.x, .y))
+  )
+
+#make sure this works right!!!!
+all_bx_files <- all_bx_files %>%
+  left_join(run_comparison %>% select(sub_num, missing_target_from_run2),
+            by = "sub_num") %>%
+  rowwise() %>%
+  mutate(mutate(missing_target_flag = run_num %in% c(6, 7) && target_shape_idx %in% missing_target_from_run2)) %>%
+  ungroup()
+
+
+  
 
 
 # ======= RT SUMMARY & ANOVA ==============
