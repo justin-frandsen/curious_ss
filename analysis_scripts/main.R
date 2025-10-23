@@ -44,19 +44,19 @@ na_tokens <- c("", ".", "NA", "null", "UNDEFINED", "UNDEFINEDnull")
 
 raw_imported_bx_files <- read_data("../data/bx_data/", get_subj_info = FALSE)
 
-eye_position_SEARCH_PERIOD <- read_delim("../data/eye_data/curious_eye_position_data/Output/eye_position_data_SEARCH_PERIOD_10_22.xls", 
+eye_position_SEARCH_PERIOD <- read_delim("../data/eye_data/curious_eye_position_data/Output/fixation_report_SEARCH_PERIOD_10_22.xls", 
                                 delim = "\t",
                                 na = na_tokens)
 
-eye_position_data_POST_SEARCH_PERIOD <- read_delim("../data/eye_data/curious_eye_position_data/Output/eye_position_data_POST_SEARCH_PERIOD_10_22.xls", 
+eye_position_data_POST_SEARCH_PERIOD <- read_delim("../data/eye_data/curious_eye_position_data/Output/fixation_report_POST_SEARCH_PERIOD_10_22.xls", 
                                 delim = "\t",
                                 na = na_tokens)
 
-eye_position_data_FULL_SEARCH_PERIOD_TRAINING <- read_delim("../data/eye_data/curious_eye_position_data/Output/eye_position_data_FULL_SEARCH_PERIOD_TRAINING_10_22.xls", 
+eye_position_data_FULL_SEARCH_PERIOD_TRAINING <- read_delim("../data/eye_data/curious_eye_position_data/Output/fixation_report_FULL_SEARCH_PERIOD_TRAINING_10_22.xls", 
                                 delim = "\t",
                                 na = na_tokens)
                                 
-eye_position_data_FULL_SEARCH_PERIOD_TRAINING <- read_delim("../data/eye_data/curious_eye_position_data/Output/eye_position_data_FULL_SEARCH_PERIOD_TRAINING_10_22.xls", 
+eye_position_data_FULL_SEARCH_PERIOD_TRAINING <- read_delim("../data/eye_data/curious_eye_position_data/Output/fixation_report_FULL_SEARCH_PERIOD_TRAINING_10_22.xls", 
                                                             delim = "\t",
                                                             na = na_tokens)
 
@@ -138,7 +138,7 @@ all_bx_files <- all_bx_files %>%
   left_join(run_comparison %>% select(sub_num, missing_target_from_run2),
             by = "sub_num") %>%
   rowwise() %>%
-  mutate(mutate(missing_target_flag = run_num %in% c(6, 7) && target_shape_idx %in% missing_target_from_run2)) %>%
+  mutate(missing_target_flag = run_num %in% c(6, 7) && target_shape_idx %in% missing_target_from_run2) %>%
   ungroup()
 
 
@@ -147,6 +147,7 @@ all_bx_files <- all_bx_files %>%
 
 # ======= RT SUMMARY & ANOVA ==============
 bx_rt_summary <- all_bx_files %>%
+  filter(missing_target_flag == 0) %>% 
   group_by(sub_num, valid0invalid1, phase) %>%
   summarise(meanRT = mean(rt, na.rm = TRUE), .groups = "drop") %>%
   mutate(Validity = factor(valid0invalid1, levels = c(0, 1), labels = c("Valid", "Invalid")),
