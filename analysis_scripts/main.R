@@ -44,21 +44,13 @@ na_tokens <- c("", ".", "NA", "null", "UNDEFINED", "UNDEFINEDnull")
 
 raw_imported_bx_files <- read_data("../data/bx_data/", get_subj_info = FALSE)
 
-eye_position_SEARCH_PERIOD <- read_delim("../data/eye_data/curious_eye_position_data/Output/fixation_report_SEARCH_PERIOD_10_22.xls", 
-                                         delim = "\t",
-                                         na = na_tokens)
+fixation_report_SEARCH_PERIOD <- read_delim("../data/eye_data/curious_eye_position_data/Output/fixation_report_SEARCH_PERIOD_10_22.xls", 
+                                            delim = "\t",
+                                            na = na_tokens)
 
-eye_position_data_POST_SEARCH_PERIOD <- read_delim("../data/eye_data/curious_eye_position_data/Output/fixation_report_POST_SEARCH_PERIOD_10_22.xls", 
-                                                   delim = "\t",
-                                                   na = na_tokens)
-
-eye_position_data_FULL_SEARCH_PERIOD_TRAINING <- read_delim("../data/eye_data/curious_eye_position_data/Output/fixation_report_FULL_SEARCH_PERIOD_TRAINING_10_22.xls", 
-                                                            delim = "\t",
-                                                            na = na_tokens)
-
-eye_position_data_FULL_SEARCH_PERIOD_TRAINING <- read_delim("../data/eye_data/curious_eye_position_data/Output/fixation_report_FULL_SEARCH_PERIOD_TRAINING_10_22.xls", 
-                                                            delim = "\t",
-                                                            na = na_tokens)
+fixation_report_POST_SEARCH_PERIOD <- read_delim("../data/eye_data/curious_eye_position_data/Output/fixation_report_POST_SEARCH_PERIOD_10_22.xls", 
+                                                 delim = "\t",
+                                                 na = na_tokens)
 
 interest_area_report <- read_delim(
   "../data/eye_data/curious_eye_position_data/Output/interest_area_report_10_22.xls",
@@ -87,16 +79,15 @@ all_imported_bx_files <- left_join(all_imported_bx_files, unique_run_summary, by
 # ======= BEHAVIORAL DATA CLEANUP & FILTERING =======
 all_bx_files <- all_imported_bx_files %>%
   # --- Basic inclusion filters ---
-  filter(
-    accuracy == 1,
-    run_num != 1,
-    unique_runs == 7,
-    overall_accuracy > 0.80,
-    sub_num != 120) %>%
+  filter(run_num != 1,
+         unique_runs == 7,
+         overall_accuracy > 0.80,
+         sub_num != 120) %>%
   # --- Group by participant and condition factors for within-subject cleanup ---
   group_by(sub_num, valid0invalid1, phase) %>%
   # --- Remove RT outliers ---
   mutate(
+    rt = ifelse(accuracy == 0, NA, rt),
     rt = ifelse(rt <= 200, NA, rt), # Hard lower bound
     mean_rt = mean(rt, na.rm = TRUE), # Compute mean and SD per participant/condition/phase
     sd_rt   = sd(rt, na.rm = TRUE),
@@ -107,33 +98,24 @@ all_bx_files <- all_imported_bx_files %>%
 
 removed_trials <- all_bx_files %>%
   group_by(sub_num) %>%
-  summarise(
-    total_trials = n(),
-    kept_trials = sum(!is.na(rt)),
-    removed_trials = sum(is.na(rt))
-  )
+  summarise(total_trials = n(),
+            kept_trials = sum(!is.na(rt)),
+            removed_trials = sum(is.na(rt)))
 
 unique_targets_summary <- all_imported_bx_files %>%
   group_by(sub_num, run_num) %>%
-  summarise(
-    unique_targets = list(unique(target_shape_idx)),
-    unique_distractors = list(unique(critical_distractor_idx)),
-    .groups = "drop")
+  summarise(unique_targets = list(unique(target_shape_idx)),
+            unique_distractors = list(unique(critical_distractor_idx)),
+            .groups = "drop")
 
 # Pivot wider so runs 2 and 4 are columns
 run_comparison <- unique_targets_summary %>%
   filter(run_num %in% c(2, 6)) %>%
-  pivot_wider(
-    names_from = run_num,
-    values_from = c(unique_targets, unique_distractors),
-    names_glue = "run{run_num}_{.value}"
-  ) %>%
-  mutate(
-    # Find which targets from run 4 are *not* in distractors from run 2
-    missing_target_from_run2 = map2(run6_unique_targets, run2_unique_distractors, ~ setdiff(.x, .y))
-  )
+  pivot_wider(names_from = run_num, 
+              values_from = c(unique_targets, unique_distractors), 
+              names_glue = "run{run_num}_{.value}") %>%
+  mutate(missing_target_from_run2 = map2(run6_unique_targets, run2_unique_distractors, ~ setdiff(.x, .y)))# Find which targets from run 4 are *not* in distractors from run 2
 
-#make sure this works right!!!!
 all_bx_files <- all_bx_files %>%
   left_join(run_comparison %>% select(sub_num, missing_target_from_run2),
             by = "sub_num") %>%
@@ -158,22 +140,42 @@ model.tables(aov_RT, "means")
 emmeans(aov_RT, pairwise ~ Validity | phase)
 emmeans(aov_RT, pairwise ~ phase | Validity)
 
+#single-trial log-RT:
+all_bx_files <- all_bx_files %>% mutate(log_rt = log(rt))
 
-bx_rt_summary <- all_bx_files %>%
+# Remove rows with NA log_rt
+lmer_data <- all_bx_files %>% filter(!is.na(log_rt), missing_target_flag == FALSE)
+
+# Example lmer: fixed effects validity*phase, random intercepts for subject (and optionally run/item)
+lmm_rt <- lmer(log_rt ~ valid0invalid1 * phase + (1 | sub_num), data = lmer_data, REML = FALSE)
+summary(lmm_rt)
+anova(lmm_rt)
+emmeans::emmeans(lmm_rt, pairwise ~ valid0invalid1 | phase, type = "response")
+
+test_phase_bx_rt_summary <- all_bx_files %>%
   filter(run_num %in% c(6, 7)) %>% 
   group_by(sub_num, valid0invalid1, missing_target_flag) %>%
   summarise(meanRT = mean(rt, na.rm = TRUE), .groups = "drop") %>%
   mutate(Validity = factor(valid0invalid1, levels = c(0, 1), labels = c("Valid", "Invalid")),
          missing_target_flag = as.factor(missing_target_flag))
 
-aov_RT <- aov(meanRT ~ Validity*missing_target_flag + Error(sub_num/(Validity*missing_target_flag)), 
-              data = bx_rt_summary)
+aov_Test_Phase_RT <- aov(meanRT ~ Validity*missing_target_flag + Error(sub_num/(Validity*missing_target_flag)), 
+                         data = test_phase_bx_rt_summary)
 
-summary(aov_RT)
-effectsize::eta_squared(aov_RT, partial = TRUE, ci = 0.95)
-model.tables(aov_RT, "means")
-emmeans(aov_RT, pairwise ~ Validity | missing_target_flag)
-emmeans(aov_RT, pairwise ~ missing_target_flag | Validity)
+summary(aov_Test_Phase_RT)
+effectsize::eta_squared(aov_Test_Phase_RT, partial = TRUE, ci = 0.95)
+model.tables(aov_Test_Phase_RT, "means")
+emmeans(aov_Test_Phase_RT, pairwise ~ Validity | missing_target_flag)
+emmeans(aov_Test_Phase_RT, pairwise ~ missing_target_flag | Validity)
+
+# Remove rows with NA log_rt
+Test_Phase_lmer_data <- all_bx_files %>% filter(!is.na(log_rt), run_num %in% c(6, 7))
+
+# Example lmer: fixed effects validity*phase, random intercepts for subject (and optionally run/item)
+Test_Phase_lmm_rt <- lmer(log_rt ~ valid0invalid1 * missing_target_flag + (1 | sub_num), data = Test_Phase_lmer_data, REML = FALSE)
+summary(Test_Phase_lmm_rt)
+anova(Test_Phase_lmm_rt)
+emmeans::emmeans(Test_Phase_lmm_rt, pairwise ~ valid0invalid1 | missing_target_flag, type = "response")
 
 # RT summary stats by condition
 bx_rt_summary %>%
@@ -204,18 +206,6 @@ bx_rt_summary %>%
     n = n() / 2,
     se = sd_RT / sqrt(n)
   )
-
-#single-trial log-RT:
-all_bx_files <- all_bx_files %>% mutate(log_rt = log(rt))
-
-# Remove rows with NA log_rt
-lmer_data <- all_bx_files %>% filter(!is.na(log_rt))
-
-# Example lmer: fixed effects validity*phase, random intercepts for subject (and optionally run/item)
-lmm_rt <- lmer(log_rt ~ valid0invalid1 * phase + (1 | sub_num), data = lmer_data, REML = FALSE)
-summary(lmm_rt)
-anova(lmm_rt)
-emmeans::emmeans(lmm_rt, pairwise ~ valid0invalid1 | phase, type = "response")
 
 #======================= EYETRACKING ANALYSIS =========================
 
@@ -255,7 +245,7 @@ trial_interest_areas_wide <- trial_interest_areas_wide %>%
   select(-scene_idx.x, -scene_idx.y)
 
 # ------------------ Eye position data ------------------------------
-eye_position_SEARCH_PERIOD <- eye_position_SEARCH_PERIOD %>% 
+fixation_report_SEARCH_PERIOD <- fixation_report_SEARCH_PERIOD %>% 
   mutate(run_num = as.numeric(str_sub(RECORDING_SESSION_LABEL, -1, -1)),
          sub_num = as.numeric(str_sub(RECORDING_SESSION_LABEL, -5, -3)),
          run_num = as.factor(run_num),
@@ -265,14 +255,15 @@ eye_position_SEARCH_PERIOD <- eye_position_SEARCH_PERIOD %>%
   mutate(trial_num = dense_rank(TRIAL_INDEX)) %>%  # Count trial within each group
   ungroup()
 
-eye_position_SEARCH_PERIOD_with_ROIs <- eye_position_SEARCH_PERIOD %>% 
+fixation_report_SEARCH_PERIOD_with_ROIs <- fixation_report_SEARCH_PERIOD %>% 
   left_join(trial_interest_areas_wide, by = c("sub_num", "run_num", "trial_num"))
 
 roi_names <- c("TargetBox", "NonCritDistBox1", "NonCritDistBox2", "NonCritDistBox3", "CritDistBox")
 
 # Example for a single ROI called "target"
-eye_position_SEARCH_PERIOD_with_ROIs <- eye_position_SEARCH_PERIOD_with_ROIs %>%
+fixation_report_SEARCH_PERIOD_with_ROIs <- fixation_report_SEARCH_PERIOD_with_ROIs %>%
   mutate(
+    run_num = as.factor(block),
     in_TargetBox = ifelse(
       between(CURRENT_FIX_X, IA_LEFT_TargetBox, IA_RIGHT_TargetBox) &
         between(CURRENT_FIX_Y, IA_TOP_TargetBox, IA_BOTTOM_TargetBox), 1, 0),
@@ -295,7 +286,7 @@ eye_position_SEARCH_PERIOD_with_ROIs <- eye_position_SEARCH_PERIOD_with_ROIs %>%
                                               ifelse(in_CritDistBox, "CritDistBox", NA))))))
 
 # Summarize fixations per trial
-fixation_summary <- eye_position_SEARCH_PERIOD_with_ROIs %>%
+SEARCH_PERIOD_fixation_summary <- fixation_report_SEARCH_PERIOD_with_ROIs %>%
   filter(RT > 200,
          RT >= mean(RT, na.rm = TRUE) - 3 * sd(RT, na.rm = TRUE),
          RT <= mean(RT, na.rm = TRUE) + 3 * sd(RT, na.rm = TRUE)) %>% 
@@ -323,13 +314,189 @@ fixation_summary <- eye_position_SEARCH_PERIOD_with_ROIs %>%
     dur_CritDist = sum(CURRENT_FIX_DURATION[in_CritDistBox == 1], na.rm = TRUE),
     # ---- First fixation ROI (in time order) ----
     first_fixation_ROI = current_roi[which(!is.na(current_roi))[1]],
+    
+    # ---- Fixation number when target was first fixated ----
+    Target_fixation_number = CURRENT_FIX_INDEX[which(in_TargetBox == 1)[1]],
     .groups = "drop")
 
-first_fixation_per_trial <- eye_position_SEARCH_PERIOD_with_ROIs %>%
+# ------------------ Post-Search Eye position data ------------------------------
+fixation_report_POST_SEARCH_PERIOD <- fixation_report_POST_SEARCH_PERIOD %>% 
+  mutate(run_num = as.numeric(str_sub(RECORDING_SESSION_LABEL, -1, -1)),
+         sub_num = as.numeric(str_sub(RECORDING_SESSION_LABEL, -5, -3)),
+         run_num = as.factor(run_num),
+         sub_num = as.factor(sub_num)) %>% 
+  group_by(sub_num, run_num) %>%       # Group by subject and run
+  arrange(sub_num, run_num, TRIAL_INDEX) %>%        # Ensure proper order
+  mutate(trial_num = dense_rank(TRIAL_INDEX)) %>%  # Count trial within each group
+  ungroup()
+
+fixation_report_POST_SEARCH_PERIOD_with_ROIs <- fixation_report_POST_SEARCH_PERIOD %>% 
+  left_join(trial_interest_areas_wide, by = c("sub_num", "run_num", "trial_num"))
+
+roi_names <- c("TargetBox", "NonCritDistBox1", "NonCritDistBox2", "NonCritDistBox3", "CritDistBox")
+
+# Example for a single ROI called "target"
+fixation_report_POST_SEARCH_PERIOD_with_ROIs <- fixation_report_POST_SEARCH_PERIOD_with_ROIs %>%
+  mutate(
+    run_num = as.factor(block),
+    in_TargetBox = ifelse(
+      between(CURRENT_FIX_X, IA_LEFT_TargetBox, IA_RIGHT_TargetBox) &
+        between(CURRENT_FIX_Y, IA_TOP_TargetBox, IA_BOTTOM_TargetBox), 1, 0),
+    in_NonCritDistBox1 = ifelse(
+      between(CURRENT_FIX_X, IA_LEFT_NonCritDistBox1, IA_RIGHT_NonCritDistBox1) &
+        between(CURRENT_FIX_Y, IA_TOP_NonCritDistBox1, IA_BOTTOM_NonCritDistBox1), 1, 0),
+    in_NonCritDistBox2 = ifelse(
+      between(CURRENT_FIX_X, IA_LEFT_NonCritDistBox2, IA_RIGHT_NonCritDistBox2) &
+        between(CURRENT_FIX_Y, IA_TOP_NonCritDistBox2, IA_BOTTOM_NonCritDistBox2), 1, 0),
+    in_NonCritDistBox3 = ifelse(
+      between(CURRENT_FIX_X, IA_LEFT_NonCritDistBox3, IA_RIGHT_NonCritDistBox3) &
+        between(CURRENT_FIX_Y, IA_TOP_NonCritDistBox3, IA_BOTTOM_NonCritDistBox3), 1, 0),
+    in_CritDistBox = ifelse(
+      between(CURRENT_FIX_X, IA_LEFT_CritDistBox, IA_RIGHT_CritDistBox) &
+        between(CURRENT_FIX_Y, IA_TOP_CritDistBox, IA_BOTTOM_CritDistBox), 1, 0),
+    current_roi = ifelse(in_TargetBox, "TargetBox", 
+                         ifelse(in_NonCritDistBox1, "NonCritDistBox1", 
+                                ifelse(in_NonCritDistBox2, "NonCritDistBox2", 
+                                       ifelse(in_NonCritDistBox3, "NonCritDistBox3", 
+                                              ifelse(in_CritDistBox, "CritDistBox", NA))))))
+
+# Summarize fixations per trial
+POST_SEARCH_PERIOD_fixation_summary <- fixation_report_POST_SEARCH_PERIOD_with_ROIs %>%
+  filter(RT > 200,
+         RT >= mean(RT, na.rm = TRUE) - 3 * sd(RT, na.rm = TRUE),
+         RT <= mean(RT, na.rm = TRUE) + 3 * sd(RT, na.rm = TRUE)) %>% 
   group_by(sub_num, run_num, trial_num) %>%
   arrange(CURRENT_FIX_INDEX, .by_group = TRUE) %>%
-  summarise(first_fixation_ROI = current_roi[which(!is.na(current_roi))[1]],  # first *valid* ROI in temporal order
-            .groups = "drop")
+  summarise(
+    
+    # ---- Basic fixation counts ----
+    total_fixations = n(),
+    fixations_on_Target = sum(in_TargetBox, na.rm = TRUE),
+    fixations_on_NonCritDist1 = sum(in_NonCritDistBox1, na.rm = TRUE),
+    fixations_on_NonCritDist2 = sum(in_NonCritDistBox2, na.rm = TRUE),
+    fixations_on_NonCritDist3 = sum(in_NonCritDistBox3, na.rm = TRUE),
+    fixations_on_CritDist = sum(in_CritDistBox, na.rm = TRUE),
+    # ---- Proportion of fixations ----
+    prop_Target = mean(in_TargetBox, na.rm = TRUE),
+    prop_NonCritDist1 = mean(in_NonCritDistBox1, na.rm = TRUE),
+    prop_NonCritDist2 = mean(in_NonCritDistBox2, na.rm = TRUE),
+    prop_NonCritDist3 = mean(in_NonCritDistBox3, na.rm = TRUE),
+    prop_CritDist = mean(in_CritDistBox, na.rm = TRUE),
+    # ---- Total fixation duration per ROI (in ms) ----
+    dur_Target = sum(CURRENT_FIX_DURATION[in_TargetBox == 1], na.rm = TRUE),
+    dur_NonCritDist1 = sum(CURRENT_FIX_DURATION[in_NonCritDistBox1 == 1], na.rm = TRUE),
+    dur_NonCritDist2 = sum(CURRENT_FIX_DURATION[in_NonCritDistBox2 == 1], na.rm = TRUE),
+    dur_NonCritDist3 = sum(CURRENT_FIX_DURATION[in_NonCritDistBox3 == 1], na.rm = TRUE),
+    dur_CritDist = sum(CURRENT_FIX_DURATION[in_CritDistBox == 1], na.rm = TRUE),
+    # ---- First fixation ROI (in time order) ----
+    first_fixation_ROI = current_roi[which(!is.na(current_roi))[1]],
+    .groups = "drop")
 
+#join the search period and post_search_period 
+FULL_SEARCH_PERIOD_fixation_summary <- SEARCH_PERIOD_fixation_summary %>% 
+  left_join(POST_SEARCH_PERIOD_fixation_summary, by = c("sub_num", "run_num", "trial_num")) %>%
+  rename_with(~ str_replace(.x, "(.*)\\.x$", "SEARCH_PERIOD_\\1"), ends_with(".x")) %>%
+  rename_with(~ str_replace(.x, "(.*)\\.y$", "POST_SEARCH_PERIOD_\\1"), ends_with(".y"))
 
+FULL_SEARCH_PERIOD_fixation_summary <- FULL_SEARCH_PERIOD_fixation_summary %>%
+  mutate(
+    # Fixation counts
+    FULL_total_fixations =
+      SEARCH_PERIOD_total_fixations + POST_SEARCH_PERIOD_total_fixations,
+    FULL_fix_Target =
+      SEARCH_PERIOD_fixations_on_Target + POST_SEARCH_PERIOD_fixations_on_Target,
+    FULL_fix_NonCritDist1 =
+      SEARCH_PERIOD_fixations_on_NonCritDist1 + POST_SEARCH_PERIOD_fixations_on_NonCritDist1,
+    FULL_fix_NonCritDist2 =
+      SEARCH_PERIOD_fixations_on_NonCritDist2 + POST_SEARCH_PERIOD_fixations_on_NonCritDist2,
+    FULL_fix_NonCritDist3 =
+      SEARCH_PERIOD_fixations_on_NonCritDist3 + POST_SEARCH_PERIOD_fixations_on_NonCritDist3,
+    FULL_fix_CritDist =
+      SEARCH_PERIOD_fixations_on_CritDist + POST_SEARCH_PERIOD_fixations_on_CritDist,
+    
+    # Durations
+    FULL_dur_Target =
+      SEARCH_PERIOD_dur_Target + POST_SEARCH_PERIOD_dur_Target,
+    FULL_dur_NonCritDist1 =
+      SEARCH_PERIOD_dur_NonCritDist1 + POST_SEARCH_PERIOD_dur_NonCritDist1,
+    FULL_dur_NonCritDist2 =
+      SEARCH_PERIOD_dur_NonCritDist2 + POST_SEARCH_PERIOD_dur_NonCritDist2,
+    FULL_dur_NonCritDist3 =
+      SEARCH_PERIOD_dur_NonCritDist3 + POST_SEARCH_PERIOD_dur_NonCritDist3,
+    FULL_dur_CritDist =
+      SEARCH_PERIOD_dur_CritDist + POST_SEARCH_PERIOD_dur_CritDist
+  ) %>%
+  mutate(
+    # Proportions must be weighted by fixation count
+    FULL_prop_Target = FULL_fix_Target / FULL_total_fixations,
+    FULL_prop_NonCritDist1 = FULL_fix_NonCritDist1 / FULL_total_fixations,
+    FULL_prop_NonCritDist2 = FULL_fix_NonCritDist2 / FULL_total_fixations,
+    FULL_prop_NonCritDist3 = FULL_fix_NonCritDist3 / FULL_total_fixations,
+    FULL_prop_CritDist = FULL_fix_CritDist / FULL_total_fixations,
+    
+    target_first_fix = ifelse(SEARCH_PERIOD_first_fixation_ROI == "TargetBox", 1, 0))
+
+#add condition info
+FULL_SEARCH_PERIOD_fixation_summary <- FULL_SEARCH_PERIOD_fixation_summary %>% 
+  left_join(all_bx_files %>% select(sub_num, run_num, trial_num, missing_target_flag, phase, valid0invalid1), 
+            by = c("sub_num", "run_num", "trial_num"))
+
+fixation_summary <- FULL_SEARCH_PERIOD_fixation_summary %>%
+  filter(missing_target_flag == FALSE,
+         run_num != 1) %>% 
+  group_by(sub_num, valid0invalid1, phase) %>%
+  summarise(mean_target_first_fix = mean(target_first_fix, na.rm = TRUE),
+            mean_Target_fixation_number = mean(Target_fixation_number, na.rm = TRUE),
+            .groups = "drop") %>%
+  mutate(Validity = factor(valid0invalid1, levels = c(0, 1), labels = c("Valid", "Invalid")),
+         phase = fct_drop(phase))
+
+aov_First_fix <- aov(mean_target_first_fix ~ Validity*phase + Error(sub_num/(Validity*phase)), 
+                     data = fixation_summary)
+
+summary(aov_First_fix)
+effectsize::eta_squared(aov_First_fix, partial = TRUE, ci = 0.95)
+model.tables(aov_First_fix, "means")
+emmeans(aov_First_fix, pairwise ~ Validity | phase)
+emmeans(aov_First_fix, pairwise ~ phase | Validity)
+
+aov_ordinal_fix <- aov(mean_Target_fixation_number ~ Validity*phase + Error(sub_num/(Validity*phase)), 
+                       data = fixation_summary)
+
+summary(aov_ordinal_fix)
+effectsize::eta_squared(aov_ordinal_fix, partial = TRUE, ci = 0.95)
+model.tables(aov_ordinal_fix, "means")
+emmeans(aov_ordinal_fix, pairwise ~ Validity | phase)
+emmeans(aov_ordinal_fix, pairwise ~ phase | Validity)
+
+# ensure factors match what you used in ANOVAs
+lmer_data_et <- FULL_SEARCH_PERIOD_fixation_summary %>%
+  filter(missing_target_flag == FALSE,
+         run_num != 1) %>%
+  mutate(Validity = factor(valid0invalid1, levels = c(0,1), labels = c("Valid","Invalid")),
+         phase = droplevels(phase))
+
+lmm_fix_number <- lmer(
+  Target_fixation_number ~ Validity * phase + (1 | sub_num),
+  data = lmer_data_et,
+  REML = FALSE
+)
+
+summary(lmm_fix_number)
+anova(lmm_fix_number)
+emmeans(lmm_fix_number, pairwise ~ Validity | phase)
+emmeans(lmm_fix_number, pairwise ~ phase | Validity)
+
+critd_training <- FULL_SEARCH_PERIOD_fixation_summary %>%
+  filter(phase == "training",
+         run_num != 1) %>%
+  group_by(sub_num, ) %>%
+  summarise(
+    total_CritDist_time = sum(FULL_dur_CritDist, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+#Next analysis is kind of difficult I need to predict the speed of looking at a target in its valid or invalid
+#location based on the total duration they looked at the distractor in the task. Do this for total fixations
+#and stuff like that
 
