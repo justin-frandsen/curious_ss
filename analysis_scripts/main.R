@@ -63,7 +63,7 @@ all_imported_bx_files <- raw_imported_bx_files %>%
     valid0invalid1 = ifelse(condition == 0, 0L, 1L), #the L makes it an integer and not a float
     sub_num = as.factor(sub_num),
     run_num = as.factor(run_num),
-    phase = as.factor(phase)
+    phase = factor(phase, levels = c("training", "testing"))
   ) %>%
   # Remove rows past trial 8 on run 1 (you had this)
   filter(!(trial_num > 8 & run_num == 1)) #remove the rows past 8 on run 1 becuase they didn't exist
