@@ -1,11 +1,37 @@
-# Libraries
+---
+title: "curious_ss"
+author: "Justin Frandsen"
+date: "`r Sys.Date()`"
+Rversion: "`r getRversion()`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    code_folding: hide
+params:
+  data_file: NULL
+---
+
+
+
+## Overview
+
+This report summarizes the preprocessing and analysis of behavioral and eye-tracking data from the Curious Search experiment. The design examines how scene-object associations influence search performance and eye movement behavior over learning.
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.width = 8, fig.height = 5)
 library(tidyverse)
-library(readxl)      # safer for .xls/.xlsx
+library(readxl)
 library(lme4)
-library(lmerTest)    # for p-values in lmer
+library(lmerTest) # for p-values in lmer
 library(emmeans)
 library(effectsize)
-
+```
+# BX DATA
+## Data import  (code hidden)
+```{r Data import}
 # ---- helper: safer filename extractor (adjust regex to your naming) ----
 extract_sub_run <- function(fname) {
   # Example expected: subj017_run2.csv or whatever your files look like.
@@ -57,6 +83,11 @@ interest_area_report <- read_delim(
   delim = "\t",
   na = na_tokens)#IA_LEFT, IA_RIGHT, IA_TOP, IA_BOTTOM (pixel coordinates on the display)
 
+```
+
+## Behavioral Preprocessing (code hidden)
+
+```{r Behavioral Preprocessing}
 # Add validity column and convert subject/run to factors
 all_imported_bx_files <- raw_imported_bx_files %>%
   mutate(
@@ -122,6 +153,10 @@ all_bx_files <- all_bx_files %>%
   rowwise() %>%
   mutate(missing_target_flag = run_num %in% c(6, 7) && target_shape_idx %in% missing_target_from_run2) %>%
   ungroup()
+```
+
+## RT Summary ANOVA and Linear-mixed effects
+```{r BX Summary, echo = TRUE, collapse=FALSE, class.source='fold-show'}
 
 # ======= RT SUMMARY & ANOVA ==============
 bx_rt_summary <- all_bx_files %>%
@@ -178,9 +213,11 @@ summary(Test_Phase_lmm_rt)
 anova(Test_Phase_lmm_rt)
 
 emmeans::emmeans(Test_Phase_lmm_rt, pairwise ~ valid0invalid1 | missing_target_flag, type = "response") #pbkrtest.limit = 5000
+```
 
-#======================= EYETRACKING ANALYSIS =========================
-
+# EYETRACKING ANALYSIS
+## Interest Area Import
+``` {r Interest Area Import}
 ## ---- Eye-tracking: AOI / IA import & join (fixed) ----
 ### Parse recording labels to pull sub/run; adjust regex if your label differs
 trial_interest_areas <- interest_area_report %>%
@@ -215,7 +252,9 @@ trial_interest_areas_wide <- trial_interest_areas_wide %>%
   mutate(scene_idx_old = scene_idx.x,
          scene_idx = scene_idx.y) %>% 
   select(-scene_idx.x, -scene_idx.y)
-
+```
+## Fixation Data
+```{r Fixation Data}
 # ------------------ Eye position data ------------------------------
 fixation_report_SEARCH_PERIOD <- fixation_report_SEARCH_PERIOD %>% 
   mutate(run_num = as.numeric(str_sub(RECORDING_SESSION_LABEL, -1, -1)),
@@ -331,7 +370,10 @@ fixation_report_POST_SEARCH_PERIOD_with_ROIs <- fixation_report_POST_SEARCH_PERI
                                 ifelse(in_NonCritDistBox2, "NonCritDistBox2", 
                                        ifelse(in_NonCritDistBox3, "NonCritDistBox3", 
                                               ifelse(in_CritDistBox, "CritDistBox", NA))))))
+```
 
+## Fixation Summary
+``` {r Fixation Summary, echo = TRUE, collapse=FALSE, class.source='fold-show'}
 # Summarize fixations per trial
 POST_SEARCH_PERIOD_fixation_summary <- fixation_report_POST_SEARCH_PERIOD_with_ROIs %>%
   filter(RT > 200,
@@ -471,4 +513,14 @@ critd_training <- FULL_SEARCH_PERIOD_fixation_summary %>%
 #Next analysis is kind of difficult I need to predict the speed of looking at a target in its valid or invalid
 #location based on the total duration they looked at the distractor in the task. Do this for total fixations
 #and stuff like that
+```
+
+
+
+
+
+
+
+
+
 
