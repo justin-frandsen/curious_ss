@@ -107,6 +107,65 @@ fixation_summary %>%
   scale_color_brewer(type = "qual", palette = palatte_num)+
   theme_classic()
 
+anova_summary <- summary(aov_RT)[[1]]  # pick the correct Error/term table
+
+#table with anova stats
+anova_tidy <- tidy(aov_RT)
+
+anova_tidy %>%
+  rename(
+    Term = term,
+    `Sum Sq` = sumsq,
+    `Mean Sq` = meansq,
+    `F value` = statistic,
+    `p value` = p.value
+  ) %>%
+  gt() %>%
+  tab_header(title = "ANOVA Summary: meanRT ~ Validity*Phase") %>%
+  fmt_number(
+    columns = c(`Sum Sq`, `Mean Sq`, `F value`, `p value`),
+    decimals = 3
+  )
+
+effectsize::eta_squared(aov_RT, partial = TRUE, ci = 0.95)
+means_tbl <- model.tables(aov_RT, "means")
+means_tbl
+valid_tbl <- model.tables(aov_RT, "means")$tables[["Validity"]] %>%
+  tibble::enframe(name = "Validity", value = "MeanRT")
+
+phase_tbl <- model.tables(aov_RT, "means")$tables[["phase"]] %>%
+  tibble::enframe(name = "Phase", value = "MeanRT")
+
+phase_tbl %>%
+  gt() %>%
+  tab_header(title = "Main Effect: Phase") %>%
+  fmt_number(columns = MeanRT, decimals = 2)
+
+valid_tbl %>%
+  gt() %>%
+  tab_header(title = "Main Effect: Validity") %>%
+  fmt_number(columns = MeanRT, decimals = 2)
+
+
+means_df <- as.data.frame(means_tbl)
+
+interaction_tbl_raw <- model.tables(aov_RT, "means")$tables[["Validity:phase"]]
+
+# Build a clean tibble
+interaction_tbl <- tibble::tibble(
+  Validity = rownames(interaction_tbl_raw),
+  Training = as.numeric(interaction_tbl_raw[, "training"]),
+  Testing  = as.numeric(interaction_tbl_raw[, "testing"])
+)
+
+# Format nicely for PowerPoint
+interaction_tbl %>%
+  gt() %>%
+  tab_header(title = "Interaction Means: Validity × Phase") %>%
+  fmt_number(
+    columns = c(Training, Testing),
+    decimals = 0
+  )
 
 
 

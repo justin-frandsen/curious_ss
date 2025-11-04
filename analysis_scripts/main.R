@@ -6,6 +6,10 @@ library(lmerTest)    # for p-values in lmer
 library(emmeans)
 library(effectsize)
 
+#for making tables with anova stats in them
+library(gt)
+library(broom)
+
 # ---- helper: safer filename extractor (adjust regex to your naming) ----
 extract_sub_run <- function(fname) {
   # Example expected: subj017_run2.csv or whatever your files look like.
@@ -137,7 +141,9 @@ aov_RT <- aov(meanRT ~ Validity*phase + Error(sub_num/(Validity*phase)),
 table(bx_rt_summary$phase, bx_rt_summary$Validity) # checks to make sure that we have balanced data (we do)
 summary(aov_RT)
 effectsize::eta_squared(aov_RT, partial = TRUE, ci = 0.95)
-model.tables(aov_RT, "means")
+means_tbl <- model.tables(aov_RT, "means")
+means_tbl
+
 emmeans(aov_RT, pairwise ~ Validity | phase)
 emmeans(aov_RT, pairwise ~ phase | Validity)
 
@@ -156,12 +162,23 @@ emmeans::emmeans(lmm_rt, pairwise ~ valid0invalid1 | phase, type = "response")
 test_phase_bx_rt_summary <- all_bx_files %>%
   filter(run_num %in% c(6, 7)) %>% 
   group_by(sub_num, valid0invalid1, missing_target_flag) %>%
-  summarise(meanRT = mean(rt, na.rm = TRUE), .groups = "drop") %>%
+  summarise(meanRT = mean(rt, na.rm = TRUE), 
+            meanLogRT = mean(log_rt, na.rm = TRUE),
+            .groups = "drop") %>%
   mutate(Validity = factor(valid0invalid1, levels = c(0, 1), labels = c("Valid", "Invalid")),
          missing_target_flag = as.factor(missing_target_flag))
 
-aov_Test_Phase_RT <- aov(meanRT ~ Validity*missing_target_flag + Error(sub_num/(Validity*missing_target_flag)), 
+aov_Test_Phase_RT <- aov(meanLogRT ~ Validity*missing_target_flag + Error(sub_num/(Validity*missing_target_flag)), 
                          data = test_phase_bx_rt_summary)
+aov_assumptions_Test_Phase_RT <- aov(meanLogRT ~ Validity*missing_target_flag,  data = test_phase_bx_rt_summary)
+# Extract residuals
+res <- residuals(aov_assumptions_Test_Phase_RT)
+
+# Visual check: Q-Q plot
+qqnorm(res); qqline(res)
+
+# Statistical test: Shapiro-Wilk test
+shapiro.test(res)
 
 summary(aov_Test_Phase_RT)
 effectsize::eta_squared(aov_Test_Phase_RT, partial = TRUE, ci = 0.95)
@@ -423,23 +440,41 @@ fixation_summary <- FULL_SEARCH_PERIOD_fixation_summary %>%
   mutate(Validity = factor(valid0invalid1, levels = c(0, 1), labels = c("Valid", "Invalid")),
          phase = fct_drop(phase))
 
-aov_First_fix <- aov(mean_target_first_fix ~ Validity*phase + Error(sub_num/(Validity*phase)), 
+#summarise how long participants looked at the critical distractor.
+critd_training <- FULL_SEARCH_PERIOD_fixation_summary %>%
+  filter(phase == 'training', 
+         run_num != 1) %>%
+  group_by(sub_num) %>%
+  summarise(
+    total_CritDist_time = sum(FULL_dur_CritDist, na.rm = TRUE),
+    .groups = "drop"
+  ) 
+
+#join how long the critical distractor was looked at with the fixation summary (add RT so we can compare to both behavioral and eyemovement info)
+fixation_summary_for_regression <- fixation_summary %>% 
+  left_join(critd_training, by = c("sub_num")) %>% 
+  left_join(bx_rt_summary, by = c("sub_num", "phase", "valid0invalid1")) %>% 
+  mutate(total_CritDist_sec = total_CritDist_time / 1000,
+         total_CritDist_centered = scale(total_CritDist_sec, center = TRUE, scale = FALSE),
+         total_CritDist_z = scale(total_CritDist_sec))
+
+aov_First_fix <- aov(mean_target_first_fix ~ valid0invalid1*phase + Error(sub_num/(valid0invalid1*phase)), 
                      data = fixation_summary)
 
 summary(aov_First_fix)
 effectsize::eta_squared(aov_First_fix, partial = TRUE, ci = 0.95)
 model.tables(aov_First_fix, "means")
-emmeans(aov_First_fix, pairwise ~ Validity | phase)
-emmeans(aov_First_fix, pairwise ~ phase | Validity)
+emmeans(aov_First_fix, pairwise ~ valid0invalid1 | phase)
+emmeans(aov_First_fix, pairwise ~ phase | valid0invalid1)
 
-aov_ordinal_fix <- aov(mean_Target_fixation_number ~ Validity*phase + Error(sub_num/(Validity*phase)), 
+aov_ordinal_fix <- aov(mean_Target_fixation_number ~ valid0invalid1*phase + Error(sub_num/(valid0invalid1*phase)), 
                        data = fixation_summary)
 
 summary(aov_ordinal_fix)
 effectsize::eta_squared(aov_ordinal_fix, partial = TRUE, ci = 0.95)
 model.tables(aov_ordinal_fix, "means")
-emmeans(aov_ordinal_fix, pairwise ~ Validity | phase)
-emmeans(aov_ordinal_fix, pairwise ~ phase | Validity)
+emmeans(aov_ordinal_fix, pairwise ~ valid0invalid1 | phase)
+emmeans(aov_ordinal_fix, pairwise ~ phase | valid0invalid1)
 
 # ensure factors match what you used in ANOVAs
 lmer_data_et <- FULL_SEARCH_PERIOD_fixation_summary %>%
@@ -459,16 +494,74 @@ anova(lmm_fix_number)
 emmeans(lmm_fix_number, pairwise ~ Validity | phase)
 emmeans(lmm_fix_number, pairwise ~ phase | Validity)
 
-critd_training <- FULL_SEARCH_PERIOD_fixation_summary %>%
-  filter(phase == "training",
-         run_num != 1) %>%
-  group_by(sub_num, ) %>%
-  summarise(
-    total_CritDist_time = sum(FULL_dur_CritDist, na.rm = TRUE),
-    .groups = "drop"
-  )
-
 #Next analysis is kind of difficult I need to predict the speed of looking at a target in its valid or invalid
 #location based on the total duration they looked at the distractor in the task. Do this for total fixations
 #and stuff like that
+
+# Full model
+model1 <- glm(mean_target_first_fix ~ valid0invalid1,
+             data = fixation_summary_for_regression %>% filter(phase == "testing"))
+model2 <- glm(mean_target_first_fix ~ total_CritDist_z,
+              data = fixation_summary_for_regression %>% filter(phase == "testing"))
+model3 <- glm(mean_target_first_fix ~ total_CritDist_z + valid0invalid1,
+             data = fixation_summary_for_regression %>% filter(phase == "testing"))
+model4 <- glm(mean_target_first_fix ~ total_CritDist_z * valid0invalid1,
+              data = fixation_summary_for_regression %>% filter(phase == "testing"))
+
+par(mfrow = c(2, 2))
+plot(model3)
+
+
+summary(model1)
+summary(model2)
+summary(model3)
+summary(model4)
+
+anova(model1, model3, test = "F")
+anova(model2, model3, test = "F")
+anova(model3, model4, test = "F")
+
+hist(fixation_summary_for_regression %>% 
+       filter(phase == "testing") %>% 
+       pull(total_CritDist_z),
+     breaks = 100)
+
+
+# Step 1: Fit linear models for each facet and extract coefficients
+coef_df <- fixation_summary_for_regression %>%
+  filter(phase == "testing") %>%
+  group_by(valid0invalid1) %>%
+  do(tidy(lm(mean_target_first_fix ~ total_CritDist_z, data = .))) %>%
+  select(valid0invalid1, term, estimate) %>%
+  tidyr::pivot_wider(names_from = term, values_from = estimate) %>%
+  rename(intercept = `(Intercept)`, slope = total_CritDist_z) %>%
+  # Create a label with the formula for each facet
+  mutate(label = paste0("y = ", round(intercept, 3), 
+                        ifelse(slope < 0, " - ", " + "),
+                        abs(round(slope, 3)), "*x"),
+         x = min(fixation_summary_for_regression$total_CritDist_z, na.rm = TRUE),
+         y = max(fixation_summary_for_regression$mean_target_first_fix, na.rm = TRUE))
+
+# Step 2: Plot points, regression lines, and formulas on each facet
+ggplot(
+  fixation_summary_for_regression %>% filter(phase == "testing"),
+  aes(x = total_CritDist_z, y = mean_target_first_fix)
+) +
+  geom_point(alpha = 0.7, color = "steelblue") +
+  geom_smooth(method = "lm", se = TRUE, color = "darkred") +
+  geom_text(
+    data = coef_df,
+    aes(x = x, y = y, label = label),
+    inherit.aes = FALSE,
+    hjust = 0,
+    size = 5
+  ) +
+  labs(
+    x = "Z-scored Total Critical Distractor Time",
+    y = "Probability of First Fixation on Target",
+    title = "Relationship Between Distractor Viewing Time and Target Fixation"
+  ) +
+  theme_minimal(base_size = 14) +
+  facet_grid(~valid0invalid1)
+
 
