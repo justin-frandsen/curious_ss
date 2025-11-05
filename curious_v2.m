@@ -653,7 +653,7 @@ for run_looper = run_num:total_runs
 
         % if incorrect give feedback (red border) for 200 ms then show post search screen for remaining time
         % if correct show post search screen for full duration
-        if run_looper <= 5 && run_looper > 1
+        if false
             if trial_accuracy == 0
                 resp_color = col.red;
                 Screen('DrawTexture', w, post_search);
@@ -689,7 +689,7 @@ for run_looper = run_num:total_runs
 
                 WaitSecs(post_search_duration)
             end
-        elseif run_looper == 1 || run_looper > 4
+        elseif true
             if trial_accuracy == false
                 DrawFormattedText(w, 'Incorrect!', 'center', 'center', col.fg);
                 Screen('Flip', w);
