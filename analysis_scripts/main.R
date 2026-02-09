@@ -46,18 +46,18 @@ read_data <- function(data_folder, get_subj_info = FALSE) {
 # Define all the strings you want to treat as NA
 na_tokens <- c("", ".", "NA", "null", "UNDEFINED", "UNDEFINEDnull")
 
-raw_imported_bx_files <- read_data("../data/bx_data/", get_subj_info = FALSE)
+raw_imported_bx_files <- read_data("../data/exp1/bx_data/", get_subj_info = FALSE)
 
-fixation_report_SEARCH_PERIOD <- read_delim("../data/eye_data/curious_eye_position_data/Output/fixation_report_SEARCH_PERIOD_10_22.xls", 
+fixation_report_SEARCH_PERIOD <- read_delim("../data/exp1/eye_data/curious_eye_position_data/Output/fixation_report_SEARCH_PERIOD_11_13.xls", 
                                             delim = "\t",
                                             na = na_tokens)
 
-fixation_report_POST_SEARCH_PERIOD <- read_delim("../data/eye_data/curious_eye_position_data/Output/fixation_report_POST_SEARCH_PERIOD_10_22.xls", 
+fixation_report_POST_SEARCH_PERIOD <- read_delim("../data/exp1/eye_data/curious_eye_position_data/Output/fixation_report_POST_SEARCH_PERIOD_11_13.xls", 
                                                  delim = "\t",
                                                  na = na_tokens)
 
 interest_area_report <- read_delim(
-  "../data/eye_data/curious_eye_position_data/Output/interest_area_report_10_22.xls",
+  "../data/exp1/eye_data/curious_eye_position_data/Output/interest_area_report_11_13.xls",
   delim = "\t",
   na = na_tokens)#IA_LEFT, IA_RIGHT, IA_TOP, IA_BOTTOM (pixel coordinates on the display)
 
