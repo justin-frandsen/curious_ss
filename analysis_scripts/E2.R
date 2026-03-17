@@ -46,20 +46,15 @@ read_data <- function(data_folder, get_subj_info = FALSE) {
 # Define all the strings you want to treat as NA
 na_tokens <- c("", ".", "NA", "null", "UNDEFINED", "UNDEFINEDnull")
 
-raw_imported_bx_files <- read_data("../data/E1/bx_data/", get_subj_info = FALSE)
+raw_imported_bx_files <- read_data("../data/E2/pre_recovery/bx_data/", get_subj_info = FALSE)
 
-fixation_report_SEARCH_PERIOD <- read_delim("../data/E1/eye_data/curious_eye_position_data/Output/fixation_report_SEARCH_PERIOD_02_11.xls", 
+fixation_report_SEARCH_PERIOD <- read_delim("../data/E2/pre_recovery/eye_data/curious_v2/Output/curious_ss_fixation_report_2026_17_3.xls", 
                                             delim = "\t",
                                             na = na_tokens)
 
-fixation_report_POST_SEARCH_PERIOD <- read_delim("../data/E1/eye_data/curious_eye_position_data/Output/fixation_report_POST_SEARCH_PERIOD_02_11.xls", 
-                                                 delim = "\t",
-                                                 na = na_tokens)
-
-interest_area_report <- read_delim(
-  "../data/E1/eye_data/curious_eye_position_data/Output/interest_area_report_02_11.xls",
-  delim = "\t",
-  na = na_tokens)#IA_LEFT, IA_RIGHT, IA_TOP, IA_BOTTOM (pixel coordinates on the display)
+interest_area_report <- read_delim("../data/E2/pre_recovery/eye_data/curious_v2/Output/curious_ss_interest_area_report_2026_17_3.xls",
+                                   delim = "\t",
+                                   na = na_tokens)#IA_LEFT, IA_RIGHT, IA_TOP, IA_BOTTOM (pixel coordinates on the display)
 
 # Add validity column and convert subject/run to factors
 all_imported_bx_files <- raw_imported_bx_files %>%
@@ -503,11 +498,11 @@ emmeans(lmm_fix_number, pairwise ~ phase | Validity)
 
 # Full model
 model1 <- glm(mean_target_first_fix ~ valid0invalid1,
-             data = fixation_summary_for_regression %>% filter(phase == "testing"))
+              data = fixation_summary_for_regression %>% filter(phase == "testing"))
 model2 <- glm(mean_target_first_fix ~ total_CritDist_z,
               data = fixation_summary_for_regression %>% filter(phase == "testing"))
 model3 <- glm(mean_target_first_fix ~ total_CritDist_z + valid0invalid1,
-             data = fixation_summary_for_regression %>% filter(phase == "testing"))
+              data = fixation_summary_for_regression %>% filter(phase == "testing"))
 model4 <- glm(mean_target_first_fix ~ total_CritDist_z * valid0invalid1,
               data = fixation_summary_for_regression %>% filter(phase == "testing"))
 
