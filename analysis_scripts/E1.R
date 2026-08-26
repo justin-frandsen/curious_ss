@@ -133,7 +133,14 @@ bx_rt_summary <- all_bx_files %>%
   group_by(sub_num, valid0invalid1, phase) %>%
   summarise(meanRT = mean(rt, na.rm = TRUE), .groups = "drop") %>%
   mutate(Validity = factor(valid0invalid1, levels = c(0, 1), labels = c("Valid", "Invalid")),
+         LocationProb = factor(valid0invalid1, levels = c(0, 1), labels = c("High", "Low")),
          phase = fct_drop(phase))
+
+bx_rt_summary_no_valid <- all_bx_files %>%
+  filter(missing_target_flag == FALSE) %>% 
+  group_by(sub_num, phase) %>%
+  summarise(meanRT = mean(rt, na.rm = TRUE), .groups = "drop") %>%
+  mutate(phase = fct_drop(phase))
 
 aov_RT <- aov(meanRT ~ Validity*phase + Error(sub_num/(Validity*phase)), 
               data = bx_rt_summary)
@@ -144,21 +151,20 @@ effectsize::eta_squared(aov_RT, partial = TRUE, ci = 0.95)
 means_tbl <- model.tables(aov_RT, "means")
 means_tbl
 
+bx_wide <- bx_rt_summary %>%
+  select(-LocationProb, -valid0invalid1) %>% 
+  pivot_wider(names_from = c("Validity", "phase"), values_from = meanRT)
+
+# Training
+t.test(bx_wide$Valid_testing, bx_wide$Invalid_testing, paired = TRUE)
+t.test(bx_wide$Valid_training, bx_wide$Invalid_training, paired = TRUE)
+
+# Testing
+t.test(bx_wide$validity_effect[bx_wide$phase == "testing"], mu = 0)
 emmeans(aov_RT, pairwise ~ Validity | phase)
 emmeans(aov_RT, pairwise ~ phase | Validity)
 
-#single-trial log-RT:
-all_bx_files <- all_bx_files %>% mutate(log_rt = log(rt))
-
-# Remove rows with NA log_rt
-lmer_data <- all_bx_files %>% filter(!is.na(log_rt), missing_target_flag == FALSE)
-
-# Example lmer: fixed effects validity*phase, random intercepts for subject (and optionally run/item)
-lmm_rt <- lmer(log_rt ~ valid0invalid1 * phase + (1 | sub_num), data = lmer_data, REML = FALSE)
-summary(lmm_rt)
-anova(lmm_rt)
-emmeans::emmeans(lmm_rt, pairwise ~ valid0invalid1 | phase, type = "response")
-
+# analysis for target that never appeared in the training vs targets that did
 test_phase_bx_rt_summary <- all_bx_files %>%
   filter(run_num %in% c(6, 7)) %>% 
   group_by(sub_num, valid0invalid1, missing_target_flag) %>%
@@ -166,39 +172,27 @@ test_phase_bx_rt_summary <- all_bx_files %>%
             meanLogRT = mean(log_rt, na.rm = TRUE),
             .groups = "drop") %>%
   mutate(Validity = factor(valid0invalid1, levels = c(0, 1), labels = c("Valid", "Invalid")),
+         LocationProb = factor(valid0invalid1, levels = c(0, 1), labels = c("High", "Low")),
          missing_target_flag = as.factor(missing_target_flag))
 
 aov_Test_Phase_RT <- aov(meanRT ~ Validity*missing_target_flag + Error(sub_num/(Validity*missing_target_flag)), 
                          data = test_phase_bx_rt_summary)
 summary(aov_Test_Phase_RT)
+
+bx_wide_test_phase <- test_phase_bx_rt_summary %>%
+  select(-LocationProb, -valid0invalid1, -meanLogRT) %>% 
+  pivot_wider(names_from = c("Validity", "missing_target_flag"), values_from = meanRT)
+
+# Training
+t.test(bx_wide_test_phase$Valid_FALSE, bx_wide_test_phase$Invalid_FALSE, paired = TRUE)
+t.test(bx_wide_test_phase$Valid_TRUE, bx_wide_test_phase$Invalid_TRUE, paired = TRUE)
 model.tables(aov_Test_Phase_RT, "means")
-
-aov_assumptions_Test_Phase_RT <- aov(meanLogRT ~ Validity*missing_target_flag,  data = test_phase_bx_rt_summary)
-# Extract residuals
-res <- residuals(aov_assumptions_Test_Phase_RT)
-
-# Visual check: Q-Q plot
-qqnorm(res); qqline(res)
-
-# Statistical test: Shapiro-Wilk test
-shapiro.test(res)
-
 summary(aov_Test_Phase_RT)
+
 effectsize::eta_squared(aov_Test_Phase_RT, partial = TRUE, ci = 0.95)
 model.tables(aov_Test_Phase_RT, "means")
 emmeans(aov_Test_Phase_RT, pairwise ~ Validity | missing_target_flag)
 emmeans(aov_Test_Phase_RT, pairwise ~ missing_target_flag | Validity)
-
-# Remove rows with NA log_rt
-Test_Phase_lmer_data <- all_bx_files %>% filter(!is.na(log_rt), run_num %in% c(6, 7))
-
-# Example lmer: fixed effects validity*phase, random intercepts for subject (and optionally run/item)
-Test_Phase_lmm_rt <- lmer(log_rt ~ valid0invalid1 * missing_target_flag + (1 | sub_num), data = Test_Phase_lmer_data, REML = FALSE)
-summary(Test_Phase_lmm_rt)
-anova(Test_Phase_lmm_rt)
-
-emmeans::emmeans(Test_Phase_lmm_rt, pairwise ~ valid0invalid1 | missing_target_flag, type = "response") #pbkrtest.limit = 5000
-
 #======================= EYETRACKING ANALYSIS =========================
 
 ## ---- Eye-tracking: AOI / IA import & join (fixed) ----
@@ -430,7 +424,7 @@ FULL_SEARCH_PERIOD_fixation_summary <- FULL_SEARCH_PERIOD_fixation_summary %>%
 
 #add condition info
 FULL_SEARCH_PERIOD_fixation_summary <- FULL_SEARCH_PERIOD_fixation_summary %>% 
-  left_join(all_bx_files %>% select(sub_num, run_num, trial_num, missing_target_flag, phase, valid0invalid1), 
+  left_join(all_bx_files %>% select(sub_num, run_num, trial_num, missing_target_flag, phase, valid0invalid1, rt, accuracy), 
             by = c("sub_num", "run_num", "trial_num"))
 
 fixation_summary <- FULL_SEARCH_PERIOD_fixation_summary %>%
@@ -441,7 +435,28 @@ fixation_summary <- FULL_SEARCH_PERIOD_fixation_summary %>%
             mean_Target_fixation_number = mean(Target_fixation_number, na.rm = TRUE),
             .groups = "drop") %>%
   mutate(Validity = factor(valid0invalid1, levels = c(0, 1), labels = c("Valid", "Invalid")),
+         LocationProb = factor(valid0invalid1, levels = c(0, 1), labels = c("High", "Low")),
          phase = fct_drop(phase))
+
+fixation_summary_no_valid <- FULL_SEARCH_PERIOD_fixation_summary %>%
+  filter(missing_target_flag == FALSE,
+         run_num != 1) %>% 
+  group_by(sub_num, phase) %>%
+  summarise(mean_target_first_fix = mean(target_first_fix, na.rm = TRUE),
+            mean_Target_fixation_number = mean(Target_fixation_number, na.rm = TRUE),
+            .groups = "drop") %>%
+  mutate(phase = fct_drop(phase))
+
+fixation_summary_test_phase <- FULL_SEARCH_PERIOD_fixation_summary %>%
+  filter(run_num %in% c(6, 7),
+         !is.na(valid0invalid1),
+         !is.na(missing_target_flag)) %>% 
+  group_by(sub_num, valid0invalid1, missing_target_flag) %>%
+  summarise(mean_target_first_fix = mean(target_first_fix, na.rm = TRUE),
+            mean_Target_fixation_number = mean(Target_fixation_number, na.rm = TRUE),
+            .groups = "drop") %>%
+  mutate(Validity = factor(valid0invalid1, levels = c(0, 1), labels = c("Valid", "Invalid")),
+         LocationProb = factor(valid0invalid1, levels = c(0, 1), labels = c("High", "Low")))
 
 #summarise how long participants looked at the critical distractor.
 critd_training <- FULL_SEARCH_PERIOD_fixation_summary %>%
@@ -450,34 +465,67 @@ critd_training <- FULL_SEARCH_PERIOD_fixation_summary %>%
   group_by(sub_num) %>%
   summarise(
     total_CritDist_time = sum(FULL_dur_CritDist, na.rm = TRUE),
+    total_number_fixation_on_critd = sum(FULL_fix_CritDist, na.rm = TRUE),
+    total_number_fixations = sum(FULL_total_fixations, na.rm = TRUE),
+    total_POST_SEARCH_PERIOD_fixations = sum(POST_SEARCH_PERIOD_total_fixations, na.rm = TRUE),
+    total_POST_SEARCH_PERIOD_dur_CritDist = sum(POST_SEARCH_PERIOD_dur_CritDist, na.rm = TRUE),
+    total_POST_SEARCH_PERIOD_fixation_on_critd = sum(POST_SEARCH_PERIOD_fixations_on_CritDist, na.rm = TRUE),
     .groups = "drop"
   ) 
 
 #join how long the critical distractor was looked at with the fixation summary (add RT so we can compare to both behavioral and eyemovement info)
-fixation_summary_for_regression <- fixation_summary %>% 
+fixation_summary_for_regression <- fixation_summary_no_valid %>% 
   left_join(critd_training, by = c("sub_num")) %>% 
-  left_join(bx_rt_summary, by = c("sub_num", "phase", "valid0invalid1")) %>% 
+  left_join(bx_rt_summary_no_valid, by = c("sub_num", "phase")) %>% 
   mutate(total_CritDist_sec = total_CritDist_time / 1000,
          total_CritDist_centered = scale(total_CritDist_sec, center = TRUE, scale = FALSE),
          total_CritDist_z = scale(total_CritDist_sec))
 
-aov_First_fix <- aov(mean_target_first_fix ~ valid0invalid1*phase + Error(sub_num/(valid0invalid1*phase)), 
+aov_First_fix <- aov(mean_target_first_fix ~ Validity*phase + Error(sub_num/(Validity*phase)), 
                      data = fixation_summary)
 
 summary(aov_First_fix)
 effectsize::eta_squared(aov_First_fix, partial = TRUE, ci = 0.95)
-model.tables(aov_First_fix, "means")
-emmeans(aov_First_fix, pairwise ~ valid0invalid1 | phase)
-emmeans(aov_First_fix, pairwise ~ phase | valid0invalid1)
 
-aov_ordinal_fix <- aov(mean_Target_fixation_number ~ valid0invalid1*phase + Error(sub_num/(valid0invalid1*phase)), 
+fixation_wide <- fixation_summary %>%
+  select(-LocationProb, -valid0invalid1, -mean_Target_fixation_number) %>% 
+  pivot_wider(names_from = c("Validity", "phase"), values_from = mean_target_first_fix)
+
+# Training
+t.test(fixation_wide$Valid_testing, fixation_wide$Invalid_testing, paired = TRUE)
+t.test(fixation_wide$Valid_training, fixation_wide$Invalid_training, paired = TRUE)
+
+model.tables(aov_First_fix, "means")
+emmeans(aov_First_fix, pairwise ~ Validity | phase)
+emmeans(aov_First_fix, pairwise ~ phase | Validity)
+
+#first fix test phase only missing target vs perviously observed targets
+aov_First_fix_test_phase <- aov(mean_target_first_fix ~ Validity*missing_target_flag + Error(sub_num/(Validity*missing_target_flag)), 
+                               data = fixation_summary_test_phase)
+
+summary(aov_First_fix_test_phase)
+effectsize::eta_squared(aov_First_fix_test_phase, partial = TRUE, ci = 0.95)
+
+fixation_wide_test <- fixation_summary_test_phase %>%
+  select(-LocationProb, -valid0invalid1, -mean_Target_fixation_number) %>% 
+  pivot_wider(names_from = c("Validity", "missing_target_flag"), values_from = mean_target_first_fix)
+
+# Training
+t.test(fixation_wide_test$Valid_FALSE, fixation_wide_test$Invalid_FALSE, paired = TRUE)
+t.test(fixation_wide_test$Valid_TRUE, fixation_wide_test$Invalid_TRUE, paired = TRUE)
+
+model.tables(aov_First_fix_test_phase, "means")
+emmeans(aov_First_fix_test_phase, pairwise ~ Validity | phase)
+emmeans(aov_First_fix_test_phase, pairwise ~ phase | Validity)
+
+aov_ordinal_fix <- aov(mean_Target_fixation_number ~ Validity*phase + Error(sub_num/(Validity*phase)), 
                        data = fixation_summary)
 
 summary(aov_ordinal_fix)
 effectsize::eta_squared(aov_ordinal_fix, partial = TRUE, ci = 0.95)
 model.tables(aov_ordinal_fix, "means")
-emmeans(aov_ordinal_fix, pairwise ~ valid0invalid1 | phase)
-emmeans(aov_ordinal_fix, pairwise ~ phase | valid0invalid1)
+emmeans(aov_ordinal_fix, pairwise ~ Validity | phase)
+emmeans(aov_ordinal_fix, pairwise ~ phase | Validity)
 
 # ensure factors match what you used in ANOVAs
 lmer_data_et <- FULL_SEARCH_PERIOD_fixation_summary %>%
@@ -487,7 +535,7 @@ lmer_data_et <- FULL_SEARCH_PERIOD_fixation_summary %>%
          phase = droplevels(phase))
 
 lmm_fix_number <- lmer(
-  Target_fixation_number ~ Validity * phase + (1 | sub_num),
+  Target_fixation_number ~ Validity * phase *  + (1 | sub_num),
   data = lmer_data_et,
   REML = FALSE
 )
@@ -501,70 +549,108 @@ emmeans(lmm_fix_number, pairwise ~ phase | Validity)
 #location based on the total duration they looked at the distractor in the task. Do this for total fixations
 #and stuff like that
 
+#total_POST_SEARCH_PERIOD_fixations
+#total_POST_SEARCH_PERIOD_dur_CritDist
+#total_POST_SEARCH_PERIOD_fixation_on_critd
+
 # Full model
-model1 <- glm(mean_target_first_fix ~ valid0invalid1,
-             data = fixation_summary_for_regression %>% filter(phase == "testing"))
-model2 <- glm(mean_target_first_fix ~ total_CritDist_z,
+dur_model1 <- lm(mean_target_first_fix ~ Validity.x,
+             data = fixation_summary_for_regression)
+dur_model2 <- lm(mean_target_first_fix ~ total_POST_SEARCH_PERIOD_fixations,
               data = fixation_summary_for_regression %>% filter(phase == "testing"))
-model3 <- glm(mean_target_first_fix ~ total_CritDist_z + valid0invalid1,
+dur_model3 <- lm(mean_target_first_fix ~ total_CritDist_z + Validity.x,
              data = fixation_summary_for_regression %>% filter(phase == "testing"))
-model4 <- glm(mean_target_first_fix ~ total_CritDist_z * valid0invalid1,
+dur_model4 <- lm(mean_target_first_fix ~ total_CritDist_z * Validity.x,
               data = fixation_summary_for_regression %>% filter(phase == "testing"))
 
 par(mfrow = c(2, 2))
 plot(model3)
 
 
-summary(model1)
-summary(model2)
-summary(model3)
-summary(model4)
+summary(dur_model1)
+summary(dur_model2)
+summary(dur_model3)
+summary(dur_model4)
+
+
+
+cor.test(fixation_summary_for_regression$mean_target_first_fix, 
+         fixation_summary_for_regression$total_CritDist_z)
+
+# Full model
+num_fix_model1 <- lm(mean_target_first_fix ~ Validity.x,
+              data = fixation_summary_for_regression)
+num_fix_model2 <- lm(mean_target_first_fix ~ total_POS,
+              data = fixation_summary_for_regression %>% filter(phase == "testing"))
+num_fix_model3 <- lm(mean_target_first_fix ~ total_number_fixation_on_critd + Validity.x,
+              data = fixation_summary_for_regression %>% filter(phase == "testing"))
+num_fix_model4 <- lm(mean_target_first_fix ~ total_number_fixation_on_critd * Validity.x,
+              data = fixation_summary_for_regression %>% filter(phase == "testing"))
+
+par(mfrow = c(2, 2))
+plot(model3)
+for_hist <- fixation_summary_for_regression %>% filter(phase == "testing")
+hist(for_hist$total_number_fixations)
+
+summary(num_fix_model1)
+summary(num_fix_model2)
+summary(num_fix_model3)
+summary(num_fix_model4)
+
+rt_model1 <- lm(meanRT ~ Validity.x,
+                      data = fixation_summary_for_regression%>% filter(phase == "testing"))
+rt_model2 <- lm(meanRT ~ total_number_fixation_on_critd,
+                 data = fixation_summary_for_regression %>% filter(phase == "testing"))
+rt_model3 <- lm(meanRT ~ total_number_fixation_on_critd + Validity.x,
+                      data = fixation_summary_for_regression %>% filter(phase == "testing"))
+rt_model4 <- lm(meanRT ~ total_number_fixation_on_critd * Validity.x,
+                      data = fixation_summary_for_regression %>% filter(phase == "testing"))
+
+summary(rt_model1)
+summary(rt_model2)
+summary(rt_model3)
+summary(rt_model4)
 
 anova(model1, model3, test = "F")
 anova(model2, model3, test = "F")
 anova(model3, model4, test = "F")
 
-hist(fixation_summary_for_regression %>% 
-       filter(phase == "testing") %>% 
-       pull(total_CritDist_z),
-     breaks = 100)
+lmer_model1 <- lmer(meanRT ~ Validity.x + (1 | sub_num),
+               data = fixation_summary_for_regression %>% filter(phase == "testing"))
+lmer_model2 <- lmer(mean_target_first_fix ~ total_number_fixation_on_critd + (1 | sub_num),
+                    data = fixation_summary_for_regression %>% filter(phase == "testing"))
+summary(lmer_model1)
+summary(lmer_model2)
 
 
-# Step 1: Fit linear models for each facet and extract coefficients
-coef_df <- fixation_summary_for_regression %>%
-  filter(phase == "testing") %>%
-  group_by(valid0invalid1) %>%
-  do(tidy(lm(mean_target_first_fix ~ total_CritDist_z, data = .))) %>%
-  select(valid0invalid1, term, estimate) %>%
-  tidyr::pivot_wider(names_from = term, values_from = estimate) %>%
-  rename(intercept = `(Intercept)`, slope = total_CritDist_z) %>%
-  # Create a label with the formula for each facet
-  mutate(label = paste0("y = ", round(intercept, 3), 
-                        ifelse(slope < 0, " - ", " + "),
-                        abs(round(slope, 3)), "*x"),
-         x = min(fixation_summary_for_regression$total_CritDist_z, na.rm = TRUE),
-         y = max(fixation_summary_for_regression$mean_target_first_fix, na.rm = TRUE))
+ggplot(fixation_summary_for_regression, aes(x = total_number_fixation_on_critd)) +
+  geom_histogram(bins = 10, fill = "steelblue") +
+  facet_wrap(~Validity.x)
 
-# Step 2: Plot points, regression lines, and formulas on each facet
-ggplot(
-  fixation_summary_for_regression %>% filter(phase == "testing"),
-  aes(x = total_CritDist_z, y = mean_target_first_fix)
-) +
-  geom_point(alpha = 0.7, color = "steelblue") +
-  geom_smooth(method = "lm", se = TRUE, color = "darkred") +
-  geom_text(
-    data = coef_df,
-    aes(x = x, y = y, label = label),
-    inherit.aes = FALSE,
-    hjust = 0,
-    size = 5
-  ) +
-  labs(
-    x = "Z-scored Total Critical Distractor Time",
-    y = "Probability of First Fixation on Target",
-    title = "Relationship Between Distractor Viewing Time and Target Fixation"
-  ) +
-  theme_minimal(base_size = 14) +
-  facet_grid(~valid0invalid1)
+ggplot(fixation_summary_for_regression, aes(x = mean_target_first_fix)) +
+  geom_histogram(bins = 10, fill = "orange") +
+  facet_wrap(~Validity.x)
 
+#============ CORRELATIONS ======================
+correlation_df <- fixation_summary_for_regression %>% 
+  filter(phase == "testing") %>% 
+  select(where(is.numeric))
+
+library(psych)
+library(corrplot)
+
+corr_results <- corr.test(correlation_df, method = "pearson", adjust = "fdr")
+
+corr_results$r  # correlation matrix
+corr_results$p  # p-values (adjusted)
+corr_results$n  # n per pair (useful if you have missing data)
+
+corrplot(corr_results$r,
+         p.mat = corr_results$p,
+         sig.level = 0.05,
+         insig = "blank",
+         method = "color",
+         type = "upper",
+         tl.cex = 0.6,
+         tl.col = "black")
 
