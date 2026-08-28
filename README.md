@@ -2,6 +2,8 @@
 
 Curious_SS is a curiosity experiment using arbitrary shapes presented in scenes to create associations within those scenes. The project is implemented in MATLAB and is organized for reproducibility and collaboration.
 
+testing a change
+
 ## Project Overview
 
 Participants are given a visual search task to search for a previously cued target shape. In this task a set of critical distractor objects appear in each scene with regularity (e.g., they appear either on the wall, counter, or floor 100% of trials). Then after participants have successfully found the cued target participants are given a free viewing period where they can search the scene how they wish. Then in the second half of the experiment we make it so that the critical distractors become the target set. We hypothesize that participants that do more visual exploration in the scene will have better guidance to the targets that were previously distractors.
